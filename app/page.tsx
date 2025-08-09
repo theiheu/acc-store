@@ -1,103 +1,207 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Hero from "@/src/components/Hero";
+import ProductCard from "@/src/components/ProductCard";
+import {
+  products,
+  type CategoryId,
+  CATEGORIES,
+  type Product,
+} from "@/src/core/products";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const [category, setCategory] = useState<CategoryId>("all");
+  const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
+  const [showSuggest, setShowSuggest] = useState(false);
+
+  // Sync from URL/localStorage
+  useEffect(() => {
+    const cParam = searchParams.get("category") as CategoryId | null;
+    const qParam = (searchParams.get("q") as string | null) ?? "";
+    const valid = new Set<CategoryId>(["all", "gaming", "social", "productivity"]);
+    let initialCategory: CategoryId = valid.has((cParam as CategoryId) ?? "all")
+      ? ((cParam as CategoryId) ?? "all")
+      : "all";
+    let initialQ = qParam;
+    try {
+      const raw = window.localStorage.getItem("products:filters");
+      if (raw) {
+        const saved = JSON.parse(raw) as { category?: CategoryId; q?: string };
+        if (!cParam && saved.category && valid.has(saved.category)) {
+          initialCategory = saved.category;
+        }
+        if (!qParam && typeof saved.q === "string") {
+          initialQ = saved.q;
+        }
+      }
+    } catch {}
+    setCategory(initialCategory);
+    setQ(initialQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Update URL + persist
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams as any);
+    if (category === "all") params.delete("category");
+    else params.set("category", category);
+    if (debouncedQ) params.set("q", debouncedQ);
+    else params.delete("q");
+    const qs = params.toString();
+    router.replace(qs ? `/?${qs}` : "/");
+    try {
+      window.localStorage.setItem(
+        "products:filters",
+        JSON.stringify({ category, q: debouncedQ })
+      );
+    } catch {}
+  }, [category, debouncedQ, router, searchParams]);
+
+  const normalized = (s: string) => s.toLowerCase();
+
+  const filtered = useMemo(() => {
+    let list: Product[] = products;
+    if (debouncedQ) {
+      list = list.filter((p: Product) =>
+        normalized(`${p.title} ${p.description}`).includes(
+          normalized(debouncedQ)
+        )
+      );
+    }
+    if (category !== "all")
+      list = list.filter((p: Product) => p.category === category);
+    return list;
+  }, [category, debouncedQ]);
+
+  const items = useMemo(
+    () => [{ id: "all", label: "Tất cả sản phẩm", icon: "🛍️" }, ...CATEGORIES],
+    []
+  ) as { id: CategoryId; label: string; icon: string }[];
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 flex flex-col items-center gap-6">
+      <Hero />
+
+      {/* Filters: search + pills */}
+      <div className="w-full max-w-5xl px-6">
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onFocus={() => setShowSuggest(true)}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+              placeholder="Tìm kiếm theo tên hoặc mô tả..."
+              className="w-full md:w-96 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 ring-amber-300"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            {showSuggest && q && (
+              <div className="absolute z-10 mt-1 w-full md:w-96 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 pb-1">Gợi ý</div>
+                <div className="flex flex-wrap gap-2 px-2 pb-2">
+                  {["Premium", "TikTok", "Facebook", "CapCut"]
+                    .filter((k) => k.toLowerCase().includes(q.toLowerCase()))
+                    .slice(0, 5)
+                    .map((k) => (
+                      <button
+                        key={k}
+                        onClick={() => setQ(k)}
+                        className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      >
+                        🔎 {k}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+              {/* Autocomplete suggestions */}
+              {q && (
+                <div className="relative">
+                  <div className="absolute z-10 mt-1 w-full md:w-96 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 px-2 pb-1">Gợi ý</div>
+                    <div className="flex flex-wrap gap-2 px-2 pb-2">
+                      {[
+                        "Premium",
+                        "TikTok",
+                        "Facebook",
+                        "CapCut",
+                      ]
+                        .filter((k) => k.toLowerCase().includes(q.toLowerCase()))
+                        .slice(0, 5)
+                        .map((k) => (
+                          <button
+                            key={k}
+                            onClick={() => setQ(k)}
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          >
+                            🔎 {k}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            className="w-full md:w-96 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 ring-amber-300"
+          />
+          <div className="flex flex-wrap gap-2">
+            {items.map((c) => {
+              const active = c.id === category;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setCategory(c.id)}
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition-colors border ${
+                    active
+                      ? "bg-amber-50 text-gray-900 dark:bg-amber-300/10 dark:text-gray-100 border-amber-200 dark:border-amber-300/30"
+                      : "text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  <span className="text-base leading-none">{c.icon}</span>
+                  <span>{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {/* Product grid */}
+      <div className="w-full max-w-5xl p-6">
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-8 text-center text-sm text-gray-600 dark:text-gray-400">
+            Không có sản phẩm phù hợp.
+            <button
+              onClick={() => {
+                setQ("");
+                setCategory("all");
+              }}
+              className="ml-2 underline"
+            >
+              Xóa lọc
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {filtered.map((p: Product) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
