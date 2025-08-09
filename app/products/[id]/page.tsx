@@ -44,7 +44,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-[calc(100dvh-80px)] bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
-      <div className="mx-auto max-w-5xl px-4 py-8 space-y-4">
+      <div className="mx-auto max-w-6xl xl:max-w-7xl px-4 lg:px-6 py-8 space-y-4">
         {/* Breadcrumbs */}
         <nav
           aria-label="Breadcrumb"
@@ -60,15 +60,15 @@ export default function ProductDetailPage() {
           ))}
         </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             {hasThumb ? (
-              <div className="relative aspect-[16/9]">
+              <div className="relative aspect-[16/9] md:aspect-[4/3] lg:aspect-[3/2]">
                 <Image
                   src={product!.imageUrl!}
                   alt={product!.title}
                   fill
-                  sizes="(min-width: 768px) 50vw, 100vw"
+                  sizes="(min-width: 1280px) 50vw, (min-width: 768px) 60vw, 100vw"
                   className="object-cover"
                 />
               </div>
@@ -79,9 +79,9 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
+              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-semibold tracking-tight">
                 {product!.title}
               </h1>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">

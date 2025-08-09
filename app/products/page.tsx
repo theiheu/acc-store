@@ -81,15 +81,17 @@ export default function ProductsPage() {
   }, [category, q]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-semibold mb-6">Sản phẩm</h1>
+    <div className="mx-auto max-w-6xl xl:max-w-7xl 2xl:max-w-[88rem] px-4 lg:px-6 py-8">
+      <h1 className="text-2xl lg:text-3xl font-semibold mb-6 lg:mb-8">
+        Sản phẩm
+      </h1>
       <div className="mb-4">
         <input
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Tìm kiếm theo tên hoặc mô tả..."
-          className="w-full md:w-80 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 ring-amber-300"
+          className="w-full md:w-96 lg:w-[28rem] rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2 text-sm outline-none focus:ring-2 ring-amber-300"
         />
       </div>
 
@@ -111,14 +113,16 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div className="flex items-start gap-6">
-        <CategorySidebar
-          value={category}
-          onChange={setCategory}
-          counts={counts}
-        />
+      <div className="flex items-start gap-6 lg:gap-8">
+        <div className="sticky top-24 hidden md:block md:w-64 shrink-0">
+          <CategorySidebar
+            value={category}
+            onChange={setCategory}
+            counts={counts}
+          />
+        </div>
         <div className="flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
             {filtered.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
