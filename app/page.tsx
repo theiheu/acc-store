@@ -4,18 +4,29 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Hero from "@/src/components/Hero";
 import ProductCard from "@/src/components/ProductCard";
-
+import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
+import HomePageSkeleton from "@/src/components/HomePageSkeleton";
 import CategorySidebar from "@/src/components/CategorySidebar";
 import { products, type CategoryId, type Product } from "@/src/core/products";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const [category, setCategory] = useState<CategoryId>("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showSuggest, setShowSuggest] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Initial loading effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Sync from URL/localStorage
   useEffect(() => {
@@ -49,9 +60,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
+    if (q.trim() !== debouncedQ) {
+      setIsSearching(true);
+    }
+    const t = setTimeout(() => {
+      setDebouncedQ(q.trim());
+      setIsSearching(false);
+    }, 300);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, debouncedQ]);
 
   // Update URL + persist
   useEffect(() => {
@@ -98,8 +115,22 @@ export default function Home() {
     }
     if (category !== "all")
       list = list.filter((p: Product) => p.category === category);
+
     return list;
   }, [category, debouncedQ]);
+
+  // Handle filtering loading state
+  useEffect(() => {
+    setIsFiltering(true);
+    const timer = setTimeout(() => {
+      setIsFiltering(false);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [category, debouncedQ]);
+
+  if (isInitialLoading) {
+    return <HomePageSkeleton />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 flex flex-col items-center gap-6">
@@ -158,7 +189,13 @@ export default function Home() {
             </div>
 
             {/* Product grid */}
-            {filtered.length === 0 ? (
+            {isFiltering || isSearching ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-8 text-center text-sm text-gray-600 dark:text-gray-400">
                 Không có sản phẩm phù hợp.
                 <button

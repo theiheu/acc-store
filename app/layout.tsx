@@ -6,6 +6,8 @@ import Navbar from "@/src/components/Navbar";
 import Footer from "@/src/components/Footer";
 import ToastProvider from "@/src/components/ToastProvider";
 import Loader from "@/src/components/Loader";
+import { GlobalLoadingProvider } from "@/src/components/GlobalLoadingProvider";
+import GlobalLoadingOverlay from "@/src/components/GlobalLoadingOverlay";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,15 +34,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ToastProvider>
-          <Navbar />
-          <main className="min-h-[calc(100dvh-7rem)]">
-            <React.Suspense fallback={<Loader label="Đang tải nội dung..." />}>
-              {children}
-            </React.Suspense>
-          </main>
-          <Footer />
-        </ToastProvider>
+        <GlobalLoadingProvider>
+          <ToastProvider>
+            <Navbar />
+            <main className="min-h-[calc(100dvh-7rem)]">
+              <React.Suspense
+                fallback={<Loader label="Đang tải nội dung..." />}
+              >
+                {children}
+              </React.Suspense>
+            </main>
+            <Footer />
+            <GlobalLoadingOverlay />
+          </ToastProvider>
+        </GlobalLoadingProvider>
       </body>
     </html>
   );

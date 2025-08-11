@@ -3,8 +3,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { useMemo } from "react";
 import type { Product } from "@/src/core/products";
+import { useGlobalLoading } from "./GlobalLoadingProvider";
 
 export default function ProductCard({ product }: { product: Product }) {
+  const { showLoading } = useGlobalLoading();
+
   const fmt = useMemo(
     () =>
       new Intl.NumberFormat("vi-VN", {
@@ -54,7 +57,11 @@ export default function ProductCard({ product }: { product: Product }) {
       <div className="p-4 lg:p-5 space-y-3">
         <div>
           <div>
-            <Link href={`/products/${product.id}`} className="hover:underline">
+            <Link
+              href={`/products/${product.id}`}
+              className="hover:underline"
+              onClick={() => showLoading("Đang tải sản phẩm...")}
+            >
               <h3 className="text-base lg:text-lg font-semibold leading-tight">
                 {product.title}
               </h3>

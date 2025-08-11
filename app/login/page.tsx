@@ -4,24 +4,28 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveUser } from "@/src/core/auth";
 import { useToastContext } from "@/src/components/ToastProvider";
+import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/account";
   const { show } = useToastContext();
+  const { withLoading } = useGlobalLoading();
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !email.includes("@")) return;
-    setSubmitting(true);
-    saveUser({ email, name: name || undefined });
-    show("Đăng nhập thành công");
-    setTimeout(() => router.push(next), 200);
+
+    await withLoading(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      saveUser({ email, name: name || undefined });
+      show("Đăng nhập thành công");
+      router.push(next);
+    }, "Đang đăng nhập...");
   }
 
   return (
@@ -29,12 +33,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
         <div className="p-5 border-b border-gray-200 dark:border-gray-800">
           <h1 className="text-lg font-semibold">Đăng nhập</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Nhập email để tiếp tục</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Nhập email để tiếp tục
+          </p>
         </div>
 
         <form onSubmit={onSubmit} className="p-5 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="email">Email</label>
+            <label className="text-sm font-medium" htmlFor="email">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -46,7 +54,9 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium" htmlFor="name">Họ và tên (không bắt buộc)</label>
+            <label className="text-sm font-medium" htmlFor="name">
+              Họ và tên (không bắt buộc)
+            </label>
             <input
               id="name"
               value={name}
@@ -58,14 +68,13 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={!email || submitting}
+            disabled={!email}
             className="w-full inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-60"
           >
-            {submitting ? "Đang xử lý..." : "Đăng nhập"}
+            Đăng nhập
           </button>
         </form>
       </div>
     </div>
   );
 }
-

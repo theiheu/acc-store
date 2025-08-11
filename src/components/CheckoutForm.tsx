@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useGlobalLoading } from "./GlobalLoadingProvider";
 
 export type CheckoutFormProps = {
   unitPrice: number;
@@ -33,7 +34,7 @@ export default function CheckoutForm({
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
   const [agree, setAgree] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const { withLoading } = useGlobalLoading();
 
   const fmt = useMemo(
     () =>
@@ -70,15 +71,15 @@ export default function CheckoutForm({
 
   const router = useRouter();
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!agree) return;
-    setSubmitting(true);
-    setTimeout(() => {
+
+    await withLoading(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
       onSuccess?.({ email, name: fullName, quantity, total });
-      setSubmitting(false);
       router.push("/success");
-    }, 600);
+    }, "Đang xử lý thanh toán...");
   }
 
   return (
@@ -250,17 +251,11 @@ export default function CheckoutForm({
       <button
         type="submit"
         disabled={
-          !agree ||
-          submitting ||
-          !email ||
-          !fullName ||
-          !cardNumber ||
-          !expiry ||
-          !cvc
+          !agree || !email || !fullName || !cardNumber || !expiry || !cvc
         }
         className="w-full inline-flex items-center justify-center rounded-lg bg-amber-300 text-gray-900 font-medium px-4 py-2.5 hover:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        {submitting ? "Đang xử lý..." : `Thanh toán ${fmt.format(total)}`}
+        Thanh toán {fmt.format(total)}
       </button>
     </form>
   );
