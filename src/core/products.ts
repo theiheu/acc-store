@@ -10,6 +10,17 @@ export const CATEGORIES: {
   { id: "productivity", label: "Tài khoản Productivity", icon: "⚙️" },
 ];
 
+export type ProductOption = {
+  id: string;
+  label: string;
+  values: Array<{
+    id: string;
+    label: string;
+    priceModifier?: number; // thêm/trừ giá gốc
+    description?: string;
+  }>;
+};
+
 export type Product = {
   id: string;
   title: string;
@@ -22,6 +33,7 @@ export type Product = {
   longDescription?: string;
   faqs?: Array<{ q: string; a: string }>;
   category: Exclude<CategoryId, "all">;
+  options?: ProductOption[]; // các tùy chọn sản phẩm
 };
 
 export const products: Product[] = [
@@ -41,6 +53,42 @@ export const products: Product[] = [
       { q: "Có đổi được loại khác?", a: "Liên hệ hỗ trợ để được tư vấn." },
     ],
     category: "gaming",
+    options: [
+      {
+        id: "duration",
+        label: "Thời hạn sử dụng",
+        values: [
+          { id: "1month", label: "1 tháng", priceModifier: 0 },
+          {
+            id: "3months",
+            label: "3 tháng",
+            priceModifier: 20000,
+            description: "Tiết kiệm 15%",
+          },
+          {
+            id: "6months",
+            label: "6 tháng",
+            priceModifier: 35000,
+            description: "Tiết kiệm 25%",
+          },
+          {
+            id: "1year",
+            label: "1 năm",
+            priceModifier: 60000,
+            description: "Tiết kiệm 35%",
+          },
+        ],
+      },
+      {
+        id: "region",
+        label: "Khu vực",
+        values: [
+          { id: "vn", label: "Việt Nam", priceModifier: 0 },
+          { id: "sea", label: "Đông Nam Á", priceModifier: 5000 },
+          { id: "global", label: "Toàn cầu", priceModifier: 15000 },
+        ],
+      },
+    ],
   },
   {
     id: "starter",
@@ -57,6 +105,21 @@ export const products: Product[] = [
       { q: "Có nâng cấp lên Premium?", a: "Có, bạn có thể nâng cấp sau." },
     ],
     category: "productivity",
+    options: [
+      {
+        id: "features",
+        label: "Tính năng",
+        values: [
+          { id: "basic", label: "Cơ bản", priceModifier: 0 },
+          {
+            id: "extended",
+            label: "Mở rộng",
+            priceModifier: 10000,
+            description: "Thêm 5 tính năng",
+          },
+        ],
+      },
+    ],
   },
   {
     id: "tiktok",
@@ -74,6 +137,31 @@ export const products: Product[] = [
       },
     ],
     category: "social",
+    options: [
+      {
+        id: "verification",
+        label: "Trạng thái xác minh",
+        values: [
+          { id: "unverified", label: "Chưa xác minh", priceModifier: 0 },
+          {
+            id: "verified",
+            label: "Đã xác minh",
+            priceModifier: 15000,
+            description: "Tick xanh",
+          },
+        ],
+      },
+      {
+        id: "followers",
+        label: "Số lượng follower",
+        values: [
+          { id: "0-1k", label: "0-1K followers", priceModifier: 0 },
+          { id: "1k-5k", label: "1K-5K followers", priceModifier: 8000 },
+          { id: "5k-10k", label: "5K-10K followers", priceModifier: 20000 },
+          { id: "10k+", label: "10K+ followers", priceModifier: 40000 },
+        ],
+      },
+    ],
   },
   {
     id: "facebook",

@@ -8,6 +8,7 @@ import { getProductById } from "@/src/core/products";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { withUtmQuery } from "@/src/utils/utm";
 import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
+import ProductOptions from "@/src/components/ProductOptions";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 
 export default function ProductDetailPage() {
@@ -21,6 +22,10 @@ export default function ProductDetailPage() {
   const { hideLoading, showLoading } = useGlobalLoading();
   const [isLoading, setIsLoading] = useState(true);
   const [qty, setQty] = useState(1);
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >({});
+  const [priceModifier, setPriceModifier] = useState(0);
   const { show } = useToastContext();
 
   const fmt = useMemo(
@@ -108,9 +113,35 @@ export default function ProductDetailPage() {
               </p>
             </div>
 
-            <div className="text-3xl font-bold tabular-nums">
-              {fmt.format(product.price)}
+            <div className="space-y-1">
+              <div className="text-3xl font-bold tabular-nums">
+                {fmt.format(product.price + priceModifier)}
+              </div>
+              {priceModifier !== 0 && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  Giá gốc: {fmt.format(product.price)}
+                  {priceModifier > 0 && (
+                    <span className="text-green-600 dark:text-green-400 ml-2">
+                      (+{fmt.format(priceModifier)})
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Product Options */}
+            {product.options && product.options.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Tùy chọn sản phẩm</h3>
+                <ProductOptions
+                  options={product.options}
+                  onSelectionChange={(selections, totalModifier) => {
+                    setSelectedOptions(selections);
+                    setPriceModifier(totalModifier);
+                  }}
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -172,7 +203,12 @@ export default function ProductDetailPage() {
                 href={{
                   pathname: "/checkout",
                   query: withUtmQuery(
-                    { productId: product.id, qty },
+                    {
+                      productId: product.id,
+                      qty,
+                      options: JSON.stringify(selectedOptions),
+                      priceModifier: priceModifier,
+                    },
                     {
                       utm_source: "product-detail",
                       utm_medium: "cta",
@@ -193,7 +229,13 @@ export default function ProductDetailPage() {
                 href={{
                   pathname: "/checkout",
                   query: withUtmQuery(
-                    { productId: product.id, coupon: "SAVE10", qty },
+                    {
+                      productId: product.id,
+                      coupon: "SAVE10",
+                      qty,
+                      options: JSON.stringify(selectedOptions),
+                      priceModifier: priceModifier,
+                    },
                     {
                       utm_source: "product-detail",
                       utm_medium: "cta",

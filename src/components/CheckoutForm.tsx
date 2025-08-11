@@ -3,12 +3,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGlobalLoading } from "./GlobalLoadingProvider";
+import type { Product } from "@/src/core/products";
 
 export type CheckoutFormProps = {
   unitPrice: number;
   currency: string;
   defaultQty?: number;
   defaultCoupon?: string;
+  product?: Product;
+  selectedOptions?: Record<string, string>;
+  priceModifier?: number;
   onSuccess?: (payload: {
     email: string;
     name: string;
@@ -22,6 +26,9 @@ export default function CheckoutForm({
   currency,
   defaultQty = 1,
   defaultCoupon = "",
+  product,
+  selectedOptions = {},
+  priceModifier = 0,
   onSuccess,
 }: CheckoutFormProps) {
   const [quantity, setQuantity] = useState(defaultQty);
@@ -85,19 +92,64 @@ export default function CheckoutForm({
   return (
     <form id="checkout" onSubmit={onSubmit} className="p-5 space-y-5">
       {/* Product summary */}
-      <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 p-3">
-        <div className="h-10 w-10 flex items-center justify-center rounded-md bg-amber-100 text-amber-900 dark:bg-amber-300/20 dark:text-amber-300">
-          🛒
+      <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 flex items-center justify-center rounded-md bg-amber-100 text-amber-900 dark:bg-amber-300/20 dark:text-amber-300">
+            {product?.imageEmoji || "🛒"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">
+              {product?.title || "Sản phẩm"}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {product?.description || "Mô tả sản phẩm"}
+            </p>
+          </div>
+          <div className="text-sm font-semibold tabular-nums">
+            {fmt.format(unitPrice)}
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">Pro License</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Giấy phép cá nhân 1 người dùng
-          </p>
-        </div>
-        <div className="text-sm font-semibold tabular-nums">
-          {fmt.format(unitPrice)}
-        </div>
+
+        {/* Selected options */}
+        {product?.options && Object.keys(selectedOptions).length > 0 && (
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Tùy chọn đã chọn:
+            </p>
+            <div className="space-y-1">
+              {product.options.map((option) => {
+                const selectedValueId = selectedOptions[option.id];
+                const selectedValue = option.values.find(
+                  (v) => v.id === selectedValueId
+                );
+                if (!selectedValue) return null;
+
+                return (
+                  <div key={option.id} className="flex justify-between text-xs">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      {option.label}:
+                    </span>
+                    <span className="text-gray-900 dark:text-gray-100">
+                      {selectedValue.label}
+                      {selectedValue.priceModifier !== 0 && (
+                        <span
+                          className={`ml-1 ${
+                            selectedValue.priceModifier > 0
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-red-600 dark:text-red-400"
+                          }`}
+                        >
+                          ({selectedValue.priceModifier > 0 ? "+" : ""}
+                          {fmt.format(selectedValue.priceModifier)})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Buyer info */}

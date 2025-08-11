@@ -6,7 +6,13 @@ import { notFound } from "next/navigation";
 export default function CheckoutPage({
   searchParams,
 }: {
-  searchParams: { productId?: string; qty?: string; coupon?: string };
+  searchParams: {
+    productId?: string;
+    qty?: string;
+    coupon?: string;
+    options?: string;
+    priceModifier?: string;
+  };
 }) {
   const product = getProductById(searchParams.productId);
   if (!product) notFound();
@@ -16,6 +22,18 @@ export default function CheckoutPage({
     Math.min(99, parseInt(searchParams.qty ?? "1", 10) || 1)
   );
   const coupon = (searchParams.coupon ?? "").toString();
+
+  // Parse selected options
+  let selectedOptions: Record<string, string> = {};
+  try {
+    if (searchParams.options) {
+      selectedOptions = JSON.parse(searchParams.options);
+    }
+  } catch (e) {
+    // Ignore parsing errors
+  }
+
+  const priceModifier = parseInt(searchParams.priceModifier ?? "0", 10) || 0;
 
   return (
     <CheckoutPageWrapper>
@@ -30,10 +48,13 @@ export default function CheckoutPage({
             </p>
           </div>
           <CheckoutForm
-            unitPrice={product.price}
+            unitPrice={product.price + priceModifier}
             currency={product.currency}
             defaultQty={qty}
             defaultCoupon={coupon}
+            product={product}
+            selectedOptions={selectedOptions}
+            priceModifier={priceModifier}
           />
         </div>
       </div>
