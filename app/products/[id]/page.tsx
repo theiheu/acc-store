@@ -9,6 +9,7 @@ import { useToastContext } from "@/src/components/ToastProvider";
 import { withUtmQuery } from "@/src/utils/utm";
 import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
 import ProductOptions from "@/src/components/ProductOptions";
+import ProductInfoTabs from "@/src/components/ProductInfoTabs";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 
 export default function ProductDetailPage() {
@@ -85,7 +86,7 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col">
             {hasThumb ? (
               <div className="relative aspect-[16/9] md:aspect-[4/3] lg:aspect-[3/2]">
                 <Image
@@ -104,6 +105,7 @@ export default function ProductDetailPage() {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            {/* CTAs (mua ngay, dùng mã) stay in upper half */}
             <div>
               <h1 className="text-2xl lg:text-3xl xl:text-4xl font-semibold tracking-tight">
                 {product.title}
@@ -170,34 +172,6 @@ export default function ProductDetailPage() {
                 +
               </button>
             </div>
-            {/* Long description & FAQs */}
-            {(product.longDescription || product.faqs?.length) && (
-              <div className="pt-4 space-y-4">
-                {product.longDescription && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <p>{product.longDescription}</p>
-                  </div>
-                )}
-                {product.faqs?.length ? (
-                  <div>
-                    <h2 className="text-sm font-semibold mb-2">
-                      Câu hỏi thường gặp
-                    </h2>
-                    <ul className="space-y-2">
-                      {product.faqs.map((f, idx) => (
-                        <li key={idx} className="text-sm">
-                          <p className="font-medium">{f.q}</p>
-                          <p className="text-gray-600 dark:text-gray-400">
-                            {f.a}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
             <div className="flex gap-2 pt-2">
               <Link
                 href={{
@@ -262,6 +236,11 @@ export default function ProductDetailPage() {
               </ul>
             </div>
           </div>
+        </div>
+
+        {/* Full-width Info Tabs in bottom half (below image and CTAs) */}
+        <div className="mt-8">
+          <ProductInfoTabs product={product} />
         </div>
       </div>
     </div>
