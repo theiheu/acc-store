@@ -175,56 +175,39 @@ export default function ProductDetailPage() {
             <div className="flex gap-2 pt-2">
               <Link
                 href={{
-                  pathname: "/checkout",
-                  query: withUtmQuery(
-                    {
-                      productId: product.id,
-                      qty,
-                      options: JSON.stringify(selectedOptions),
-                      priceModifier: priceModifier,
-                    },
-                    {
-                      utm_source: "product-detail",
-                      utm_medium: "cta",
-                      utm_campaign: product.id,
-                      utm_content: "detail-primary",
-                    }
-                  ),
+                  pathname: "/deposit",
+                  query: {
+                    utm_source: "product-detail",
+                    utm_medium: "cta",
+                    utm_campaign: product.id,
+                    utm_content: "detail-primary",
+                  },
                 }}
                 onClick={() => {
-                  showLoading("Đang chuyển đến thanh toán...");
-                  show("Đã chuyển sang trang thanh toán");
+                  showLoading("Đang chuyển đến nạp tiền...");
+                  show("Đã chuyển sang trang nạp tiền");
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90"
               >
-                Mua ngay
+                Nạp tiền ngay
               </Link>
               <Link
                 href={{
-                  pathname: "/checkout",
-                  query: withUtmQuery(
-                    {
-                      productId: product.id,
-                      coupon: "SAVE10",
-                      qty,
-                      options: JSON.stringify(selectedOptions),
-                      priceModifier: priceModifier,
-                    },
-                    {
-                      utm_source: "product-detail",
-                      utm_medium: "cta",
-                      utm_campaign: product.id,
-                      utm_content: "detail-outline",
-                    }
-                  ),
+                  pathname: "/deposit",
+                  query: {
+                    utm_source: "product-detail",
+                    utm_medium: "cta",
+                    utm_campaign: product.id,
+                    utm_content: "detail-outline",
+                  },
                 }}
                 onClick={() => {
-                  showLoading("Đang chuyển đến thanh toán...");
-                  show("Đã chuyển sang trang thanh toán");
+                  showLoading("Đang chuyển đến nạp tiền...");
+                  show("Đã chuyển sang trang nạp tiền");
                 }}
                 className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Dùng mã -10%
+                Xem thêm
               </Link>
             </div>
 

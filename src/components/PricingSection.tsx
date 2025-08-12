@@ -4,17 +4,14 @@ import Link from "next/link";
 import { formatVND } from "@/src/utils/currency";
 import { useToastContext } from "@/src/components/ToastProvider";
 
-type CheckoutQuery = {
-  productId?: string;
-  qty?: number;
-  coupon?: string;
+type DepositQuery = {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
   utm_content?: string;
 };
 
-type Href = { pathname: string; query?: CheckoutQuery };
+type Href = { pathname: string; query?: DepositQuery };
 
 type Plan = {
   id: string;
@@ -33,7 +30,7 @@ export default function PricingSection() {
       price: 19000,
       popular: false,
       features: ["Cơ bản", "1 tài khoản", "Hỗ trợ qua email"],
-      href: { pathname: "/checkout", query: { productId: "starter", qty: 1 } },
+      href: { pathname: "/deposit" },
     },
     {
       id: "premium",
@@ -41,7 +38,7 @@ export default function PricingSection() {
       price: 49000,
       popular: true,
       features: ["Đủ tính năng", "1 tài khoản", "Bảo hành 7 ngày"],
-      href: { pathname: "/checkout", query: { productId: "premium", qty: 1 } },
+      href: { pathname: "/deposit" },
     },
     {
       id: "team",
@@ -49,15 +46,14 @@ export default function PricingSection() {
       price: 99000,
       popular: false,
       features: ["Dành cho nhóm", "3 tài khoản", "Ưu tiên hỗ trợ"],
-      // Tạm liên kết tới premium với qty=3
-      href: { pathname: "/checkout", query: { productId: "premium", qty: 3 } },
+      href: { pathname: "/deposit" },
     },
   ];
   const { show } = useToastContext();
 
-  function withUtm(query: CheckoutQuery, planId: string): Href {
+  function withUtm(query: DepositQuery, planId: string): Href {
     return {
-      pathname: "/checkout",
+      pathname: "/deposit",
       query: {
         ...query,
         utm_source: "homepage",
