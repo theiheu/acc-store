@@ -1,6 +1,17 @@
+export type UserRole = "user" | "admin";
+
+export type UserStatus = "active" | "suspended" | "banned";
+
 export type User = {
+  id: string;
   email: string;
   name?: string;
+  role: UserRole;
+  status: UserStatus;
+  balance: number; // User's account balance in VND
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt?: Date;
 };
 
 const STORAGE_KEY = "accstore:user";
@@ -20,4 +31,3 @@ export function saveUser(user: User | null) {
   if (user) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   else window.localStorage.removeItem(STORAGE_KEY);
 }
-

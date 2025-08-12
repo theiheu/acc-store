@@ -34,6 +34,14 @@ export type Product = {
   faqs?: Array<{ q: string; a: string }>;
   category: Exclude<CategoryId, "all">;
   options?: ProductOption[]; // các tùy chọn sản phẩm
+  // Admin fields (optional for backward compatibility)
+  stock?: number;
+  sold?: number;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: string;
+  lastModifiedBy?: string;
 };
 
 export const products: Product[] = [
@@ -204,4 +212,47 @@ export const products: Product[] = [
 export function getProductById(id?: string | null) {
   if (!id) return null;
   return products.find((p) => p.id === id) || null;
+}
+
+// Admin helper functions
+export function getActiveProducts(): Product[] {
+  return products.filter((p) => p.isActive !== false);
+}
+
+export function getProductsByCategory(category: CategoryId): Product[] {
+  if (category === "all") return products;
+  return products.filter((p) => p.category === category);
+}
+
+export function searchProducts(query: string): Product[] {
+  const lowercaseQuery = query.toLowerCase();
+  return products.filter(
+    (p) =>
+      p.title.toLowerCase().includes(lowercaseQuery) ||
+      p.description.toLowerCase().includes(lowercaseQuery) ||
+      p.longDescription?.toLowerCase().includes(lowercaseQuery)
+  );
+}
+
+export function calculateProductPrice(
+  product: Product,
+  selectedOptions?: Record<string, string>
+): number {
+  let totalPrice = product.price;
+
+  if (selectedOptions && product.options) {
+    for (const option of product.options) {
+      const selectedValueId = selectedOptions[option.id];
+      if (selectedValueId) {
+        const selectedValue = option.values.find(
+          (v) => v.id === selectedValueId
+        );
+        if (selectedValue?.priceModifier) {
+          totalPrice += selectedValue.priceModifier;
+        }
+      }
+    }
+  }
+
+  return totalPrice;
 }
