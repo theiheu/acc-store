@@ -137,7 +137,7 @@ export default function AccountPage() {
           {/* Quick Actions */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6">
             <h3 className="text-lg font-semibold mb-4">Thao tác nhanh</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
               <Link
                 href="/products"
                 className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-300/10 hover:border-amber-300 dark:hover:border-amber-300/30 transition-all"
@@ -160,6 +160,32 @@ export default function AccountPage() {
                   <p className="font-medium text-sm">Đơn hàng</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Xem lịch sử mua hàng
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/deposit"
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-300/10 hover:border-amber-300 dark:hover:border-amber-300/30 transition-all"
+              >
+                <span className="text-xl">💰</span>
+                <div>
+                  <p className="font-medium text-sm">Nạp tiền</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Nạp tiền vào tài khoản
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/deposit/history"
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-300/10 hover:border-amber-300 dark:hover:border-amber-300/30 transition-all"
+              >
+                <span className="text-xl">📊</span>
+                <div>
+                  <p className="font-medium text-sm">Lịch sử nạp tiền</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Xem giao dịch nạp tiền
                   </p>
                 </div>
               </Link>

@@ -87,18 +87,7 @@ export default function Navbar() {
 
         {/* Desktop right (actions) */}
         <nav className="hidden md:flex items-center gap-2">
-          <NavLink
-            href={{
-              pathname: "/checkout",
-              query: {
-                utm_source: "navbar",
-                utm_medium: "link",
-                utm_campaign: "checkout",
-                utm_content: "nav-link",
-              },
-            }}
-            active={isCheckout}
-          >
+          <NavLink href="/deposit" active={pathname === "/deposit"}>
             Nạp tiền
           </NavLink>
           <div className="ml-2">
@@ -148,16 +137,8 @@ export default function Navbar() {
               Sản phẩm
             </NavLink>
             <NavLink
-              href={{
-                pathname: "/checkout",
-                query: {
-                  utm_source: "navbar",
-                  utm_medium: "link",
-                  utm_campaign: "checkout",
-                  utm_content: "nav-link",
-                },
-              }}
-              active={isCheckout}
+              href="/deposit"
+              active={pathname === "/deposit"}
               onClick={() => setOpen(false)}
             >
               Nạp tiền
