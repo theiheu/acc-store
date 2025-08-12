@@ -4,10 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/src/components/Navbar";
 import Footer from "@/src/components/Footer";
-import ToastProvider from "@/src/components/ToastProvider";
 import Loader from "@/src/components/Loader";
-import { GlobalLoadingProvider } from "@/src/components/GlobalLoadingProvider";
-import GlobalLoadingOverlay from "@/src/components/GlobalLoadingOverlay";
+import Providers from "@/src/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,24 +28,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <GlobalLoadingProvider>
-          <ToastProvider>
-            <Navbar />
-            <main className="min-h-[calc(100dvh-7rem)]">
-              <React.Suspense
-                fallback={<Loader label="Đang tải nội dung..." />}
-              >
-                {children}
-              </React.Suspense>
-            </main>
-            <Footer />
-            <GlobalLoadingOverlay />
-          </ToastProvider>
-        </GlobalLoadingProvider>
+        <Providers>
+          <Navbar />
+          <main className="min-h-[calc(100dvh-7rem)]">
+            <React.Suspense fallback={<Loader label="Đang tải nội dung..." />}>
+              {children}
+            </React.Suspense>
+          </main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );
