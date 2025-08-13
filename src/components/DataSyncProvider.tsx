@@ -75,34 +75,60 @@ export function DataSyncProvider({
   // Set up real-time updates
   const { isConnected } = useRealtimeUpdates({
     onUserUpdated: (data) => {
-      setUsers(dataStore.getUsers());
+      // Merge updated user into local users state
+      setUsers((prev) => {
+        const next = [...prev];
+        const idx = next.findIndex((u) => u.id === data.user.id);
+        if (idx >= 0) next[idx] = data.user;
+        else next.push(data.user);
+        return next;
+      });
+
+      // Update current user if this is the same email
       if (currentUserEmail && data.user.email === currentUserEmail) {
-        setCurrentUser(dataStore.getPublicUser(currentUserEmail));
+        const u = data.user;
+        const publicUser = {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          status: u.status,
+          balance: u.balance,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt,
+          lastLoginAt: u.lastLoginAt,
+        } as User;
+        setCurrentUser(publicUser);
       }
+
       setLastUpdate(new Date());
     },
-    onBalanceUpdated: (data) => {
+    onBalanceUpdated: (data: {
+      userId: string;
+      newBalance: number;
+      userEmail?: string;
+    }) => {
       console.log("Balance updated event received:", data);
-      setUsers(dataStore.getUsers());
-      setTransactions(dataStore.getTransactions()); // Update transactions
-      if (currentUser && currentUser.id === data.userId) {
-        console.log(
-          "Updating current user balance:",
-          currentUser.email,
-          "new balance:",
-          data.newBalance
-        );
+
+      // Update users array optimistically
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === data.userId ? { ...u, balance: data.newBalance } : u
+        )
+      );
+
+      // Update current user by id or email match
+      const matchesById = currentUser && currentUser.id === data.userId;
+      const matchesByEmail =
+        !matchesById && currentUserEmail && data.userEmail === currentUserEmail;
+
+      if (matchesById || matchesByEmail) {
         setCurrentUser((prev) =>
-          prev ? { ...prev, balance: data.newBalance } : null
-        );
-      } else {
-        console.log(
-          "Current user ID mismatch:",
-          currentUser?.id,
-          "vs",
-          data.userId
+          prev ? { ...prev, balance: data.newBalance } : prev
         );
       }
+
+      setTransactions(dataStore.getTransactions()); // refresh transactions list
       setLastUpdate(new Date());
     },
     onProductUpdated: (data) => {
@@ -151,13 +177,28 @@ export function DataSyncProvider({
     refreshData();
   }, []);
 
-  // Set up current user
+  // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
-    if (currentUserEmail) {
-      const user = dataStore.getPublicUser(currentUserEmail);
-      setCurrentUser(user);
+    if (!currentUserEmail) return;
+
+    const fromUsers = users.find((u) => u.email === currentUserEmail);
+    if (fromUsers) {
+      const publicUser: User = {
+        id: fromUsers.id,
+        email: fromUsers.email,
+        name: fromUsers.name,
+        role: fromUsers.role,
+        status: fromUsers.status,
+        balance: fromUsers.balance,
+        createdAt: fromUsers.createdAt as any,
+        updatedAt: fromUsers.updatedAt as any,
+        lastLoginAt: fromUsers.lastLoginAt as any,
+      };
+      setCurrentUser(publicUser);
+    } else {
+      setCurrentUser(dataStore.getPublicUser(currentUserEmail));
     }
-  }, [currentUserEmail]);
+  }, [currentUserEmail, users]);
 
   // Subscribe to real-time updates
   useEffect(() => {
@@ -288,6 +329,8 @@ export function useDataSync() {
 // Hook for current user data with real-time updates
 export function useCurrentUser() {
   const { currentUser } = useDataSync();
+  console.log(`🚀 | currentUser:`, currentUser);
+
   return currentUser;
 }
 

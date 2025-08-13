@@ -53,8 +53,11 @@ export async function GET(request: NextRequest) {
 
             case "USER_BALANCE_CHANGED":
               console.log("SSE: Broadcasting balance change:", event.payload);
+              // Enrich with userEmail for robust client matching
+              const u = dataStore.getUser(event.payload.userId);
               sendEvent("balance-updated", {
                 userId: event.payload.userId,
+                userEmail: u?.email,
                 newBalance: event.payload.newBalance,
                 timestamp: new Date().toISOString(),
               });

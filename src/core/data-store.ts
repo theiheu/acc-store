@@ -511,34 +511,54 @@ class DataStore {
     if (action === "approve") {
       const approvedAmount = options.approvedAmount || request.requestedAmount;
 
-      // Update user balance
-      const user = this.users.get(request.userId);
-      if (user) {
-        const newBalance = user.balance + approvedAmount;
-        this.updateUser(
-          request.userId,
-          { balance: newBalance },
-          adminId,
-          adminName
-        );
-
-        // Create transaction record
-        transaction = this.createTransaction({
-          userId: request.userId,
-          type: "credit",
-          amount: approvedAmount,
-          description: `Nạp tiền theo yêu cầu: ${
-            request.userNotes || "Không có ghi chú"
-          }`,
-          adminId,
-          metadata: {
-            topupRequestId: requestId,
-            requestedAmount: request.requestedAmount,
-            approvedAmount,
-            adminNotes: options.adminNotes,
-          },
-        });
+      // Update user balance (with fallback if user map reset)
+      let user = this.users.get(request.userId);
+      if (!user) {
+        // Try resolve by email
+        const byEmail = this.getUserByEmail(request.userEmail);
+        if (byEmail) {
+          request.userId = byEmail.id; // fix stale userId in request
+          user = byEmail;
+        } else {
+          // Create a minimal user record to ensure credit is applied
+          user = this.createUser({
+            email: request.userEmail,
+            name: request.userName,
+            role: "user",
+            status: "active",
+            balance: 0,
+            totalOrders: 0,
+            totalSpent: 0,
+            registrationSource: "topup-approve-fallback",
+          });
+          request.userId = user.id;
+        }
       }
+
+      const newBalance = user.balance + approvedAmount;
+      this.updateUser(
+        request.userId,
+        { balance: newBalance },
+        adminId,
+        adminName
+      );
+
+      // Create transaction record
+      transaction = this.createTransaction({
+        userId: request.userId,
+        type: "credit",
+        amount: approvedAmount,
+        description: `Nạp tiền theo yêu cầu: ${
+          request.userNotes || "Không có ghi chú"
+        }`,
+        adminId,
+        metadata: {
+          topupRequestId: requestId,
+          requestedAmount: request.requestedAmount,
+          approvedAmount,
+          adminNotes: options.adminNotes,
+        },
+      });
 
       // Update request status
       const updatedRequest = this.updateTopupRequest(requestId, {
