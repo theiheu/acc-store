@@ -11,6 +11,17 @@ import {
 import { Product, products } from "./products";
 import { User } from "./auth";
 
+// Server-only persistence utilities (guarded to avoid bundling issues on client)
+const __isServer = typeof window === "undefined";
+let __fs: any = null as any;
+let __path: any = null as any;
+if (__isServer) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  __fs = require("fs");
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  __path = require("path");
+}
+
 // Event system for real-time updates
 type DataStoreEvent =
   | { type: "USER_UPDATED"; payload: AdminUser }
@@ -37,8 +48,141 @@ class DataStore {
   private activities: ActivityLog[] = [];
   private listeners: EventListener[] = [];
 
+  // === Persistence (server-only) ===
+  private baseDir = __isServer ? __path.join(process.cwd(), ".data") : "";
+  private files = {
+    users: __isServer ? __path.join(this.baseDir, "users.json") : "",
+    products: __isServer ? __path.join(this.baseDir, "products.json") : "",
+    transactions: __isServer
+      ? __path.join(this.baseDir, "transactions.json")
+      : "",
+    topups: __isServer ? __path.join(this.baseDir, "topups.json") : "",
+    activities: __isServer ? __path.join(this.baseDir, "activities.json") : "",
+  };
+
+  private saveTimer: any = null;
+  private scheduleSave() {
+    if (!__isServer) return;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.persistAllSafe(), 200);
+  }
+
+  private ensureDir() {
+    if (!__isServer) return;
+    if (!__fs.existsSync(this.baseDir)) {
+      __fs.mkdirSync(this.baseDir, { recursive: true });
+    }
+  }
+
+  private persistAllSafe() {
+    try {
+      this.ensureDir();
+      const toJSON = (v: any) =>
+        JSON.stringify(v, (key, value) => {
+          if (value instanceof Date) return value.toISOString();
+          return value;
+        });
+      __fs.writeFileSync(
+        this.files.users,
+        toJSON(Array.from(this.users.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.products,
+        toJSON(Array.from(this.products.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.transactions,
+        toJSON(Array.from(this.transactions.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.topups,
+        toJSON(Array.from(this.topupRequests.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.activities,
+        toJSON(this.activities),
+        "utf-8"
+      );
+    } catch (e) {
+      console.error("Persist error:", e);
+    }
+  }
+
+  private loadAllSafe() {
+    if (!__isServer) return;
+    try {
+      this.ensureDir();
+      const parseJSON = (file: string) => {
+        if (!__fs.existsSync(file)) return null;
+        const raw = __fs.readFileSync(file, "utf-8");
+        return JSON.parse(raw);
+      };
+
+      const reviveDates = (obj: any) => {
+        if (!obj || typeof obj !== "object") return obj;
+        for (const k of Object.keys(obj)) {
+          const v = (obj as any)[k];
+          if (typeof v === "string" && /\d{4}-\d{2}-\d{2}T/.test(v)) {
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) (obj as any)[k] = d;
+          } else if (v && typeof v === "object") reviveDates(v);
+        }
+        return obj;
+      };
+
+      const users = parseJSON(this.files.users);
+      if (Array.isArray(users)) {
+        users.forEach((u) => {
+          reviveDates(u);
+          this.users.set(u.id, u);
+        });
+      }
+
+      const products = parseJSON(this.files.products);
+      if (Array.isArray(products)) {
+        products.forEach((p) => {
+          reviveDates(p);
+          this.products.set(p.id, p);
+        });
+      }
+
+      const transactions = parseJSON(this.files.transactions);
+      if (Array.isArray(transactions)) {
+        transactions.forEach((t) => {
+          reviveDates(t);
+          this.transactions.set(t.id, t);
+        });
+      }
+
+      const topups = parseJSON(this.files.topups);
+      if (Array.isArray(topups)) {
+        topups.forEach((r) => {
+          reviveDates(r);
+          this.topupRequests.set(r.id, r);
+        });
+      }
+
+      const activities = parseJSON(this.files.activities);
+      if (Array.isArray(activities)) {
+        activities.forEach((a) => reviveDates(a));
+        this.activities = activities;
+      }
+    } catch (e) {
+      console.error("Load persisted data error:", e);
+    }
+  }
+
   constructor() {
-    this.initializeData();
+    // Load persisted data first; if first run (no products), seed catalog
+    this.loadAllSafe();
+    if (this.products.size === 0) {
+      this.initializeData();
+      this.scheduleSave();
+    }
   }
 
   // Event system
@@ -124,6 +268,10 @@ class DataStore {
     });
 
     this.emit({ type: "USER_CREATED", payload: user });
+
+    // Persist
+    this.scheduleSave();
+
     return user;
   }
 
@@ -177,6 +325,10 @@ class DataStore {
     }
 
     this.emit({ type: "USER_UPDATED", payload: updatedUser });
+
+    // Persist changes
+    this.scheduleSave();
+
     return updatedUser;
   }
 
@@ -218,6 +370,9 @@ class DataStore {
     if (this.activities.length > 1000) {
       this.activities = this.activities.slice(0, 1000);
     }
+
+    // Persist
+    this.scheduleSave();
 
     return newActivity;
   }
@@ -335,6 +490,10 @@ class DataStore {
     });
 
     this.emit({ type: "PRODUCT_CREATED", payload: product });
+
+    // Persist
+    this.scheduleSave();
+
     return product;
   }
 
@@ -388,6 +547,10 @@ class DataStore {
     }
 
     this.emit({ type: "PRODUCT_UPDATED", payload: updatedProduct });
+
+    // Persist
+    this.scheduleSave();
+
     return updatedProduct;
   }
 
@@ -447,6 +610,10 @@ class DataStore {
     });
 
     this.emit({ type: "TOPUP_REQUEST_CREATED", payload: request });
+
+    // Persist
+    this.scheduleSave();
+
     return request;
   }
 
@@ -486,6 +653,9 @@ class DataStore {
 
     this.topupRequests.set(id, updatedRequest);
     this.emit({ type: "TOPUP_REQUEST_UPDATED", payload: updatedRequest });
+
+    // Persist
+    this.scheduleSave();
     return updatedRequest;
   }
 
@@ -585,6 +755,7 @@ class DataStore {
 
       if (updatedRequest) {
         this.emit({ type: "TOPUP_REQUEST_PROCESSED", payload: updatedRequest });
+        this.scheduleSave();
       }
 
       return { request: updatedRequest, transaction };
@@ -613,6 +784,7 @@ class DataStore {
 
       if (updatedRequest) {
         this.emit({ type: "TOPUP_REQUEST_PROCESSED", payload: updatedRequest });
+        this.scheduleSave();
       }
 
       return { request: updatedRequest };
@@ -630,6 +802,10 @@ class DataStore {
 
     this.transactions.set(transaction.id, transaction);
     this.emit({ type: "TRANSACTION_CREATED", payload: transaction });
+
+    // Persist
+    this.scheduleSave();
+
     return transaction;
   }
 

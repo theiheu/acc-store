@@ -147,10 +147,13 @@ export default function DepositPage() {
           throw new Error(data.error || "Tạo yêu cầu thất bại");
         }
         setShowQR(true);
+        if (data.reused) {
+          show("Đã cập nhật yêu cầu nạp tiền đang chờ với thông tin mới.");
+        }
         setTopupRefreshTrigger((v) => v + 1);
       }, "Đang tạo mã QR và lưu yêu cầu...");
 
-      show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!", "success");
+      show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!");
     } catch (error) {
       show("Có lỗi xảy ra khi tạo yêu cầu nạp tiền", "error");
       console.error("QR generation error:", error);
@@ -270,7 +273,7 @@ export default function DepositPage() {
                   <h2 className="text-lg font-semibold">Mã QR chuyển khoản</h2>
                   <button
                     onClick={handleReset}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   >
                     <span>🔄</span>
                     Tạo lại mã QR
@@ -302,7 +305,7 @@ export default function DepositPage() {
                         show("Đã tải QR code thành công!");
                       }
                     }}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
                   >
                     <span>💾</span>
                     Tải QR
@@ -313,7 +316,7 @@ export default function DepositPage() {
                       navigator.clipboard.writeText(qrData);
                       show("Đã copy dữ liệu QR!");
                     }}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                   >
                     <span>📋</span>
                     Copy QR
@@ -350,7 +353,7 @@ Nội dung: ${transferContent}`;
                       navigator.clipboard.writeText(allInfo);
                       show("Đã copy tất cả thông tin chuyển khoản!");
                     }}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-amber-100 dark:bg-amber-300/10 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-300/20 transition-colors"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-amber-100 dark:bg-amber-300/10 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-300/20 transition-colors cursor-pointer"
                   >
                     <span>📋</span>
                     Copy tất cả
@@ -370,7 +373,7 @@ Nội dung: ${transferContent}`;
                           navigator.clipboard.writeText(BANK_CONFIG.bankName);
                           show("Đã copy tên ngân hàng!");
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy tên ngân hàng"
                       >
                         📋
@@ -392,7 +395,7 @@ Nội dung: ${transferContent}`;
                           );
                           show("Đã copy số tài khoản!");
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy số tài khoản"
                       >
                         📋
@@ -414,7 +417,7 @@ Nội dung: ${transferContent}`;
                           );
                           show("Đã copy tên người nhận!");
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy tên người nhận"
                       >
                         📋
@@ -435,7 +438,7 @@ Nội dung: ${transferContent}`;
                           navigator.clipboard.writeText(numericAmount);
                           show("Đã copy số tiền!");
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy số tiền (chỉ số)"
                       >
                         📋
@@ -462,7 +465,7 @@ Nội dung: ${transferContent}`;
                             show("Đã copy Account ID!");
                           }
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy Account ID"
                       >
                         📋
@@ -482,7 +485,7 @@ Nội dung: ${transferContent}`;
                           navigator.clipboard.writeText(transferContent);
                           show("Đã copy nội dung chuyển khoản!");
                         }}
-                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                        className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                         title="Copy nội dung chuyển khoản"
                       >
                         📋

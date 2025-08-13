@@ -87,7 +87,7 @@ export default function TopupRequestHistory({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Lịch sử yêu cầu nạp tiền
+          Lịch sử nạp tiền
         </h3>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -105,7 +105,7 @@ export default function TopupRequestHistory({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Lịch sử yêu cầu nạp tiền
+          Lịch sử nạp tiền
         </h3>
         <div className="text-center py-8">
           <div className="text-red-500 mb-2">⚠️</div>
@@ -124,15 +124,17 @@ export default function TopupRequestHistory({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Lịch sử yêu cầu nạp tiền
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Theo dõi trạng thái các yêu cầu nạp tiền của bạn
-        </p>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Lịch sử nạp tiền
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Theo dõi trạng thái các yêu cầu nạp tiền của bạn
+          </p>
+        </div>
         <button
           onClick={fetchRequests}
-          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 text-sm font-medium"
+          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 text-sm font-medium cursor-pointer"
         >
           Làm mới
         </button>
@@ -186,9 +188,11 @@ export default function TopupRequestHistory({
                           expandedQR === request.id ? null : request.id
                         )
                       }
-                      className="mt-2 px-3 py-1 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors"
+                      className="mt-2 px-3 py-1 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
                     >
-                      {expandedQR === request.id ? "Ẩn QR" : "Xem QR"}
+                      {expandedQR === request.id
+                        ? "Ẩn chi tiết"
+                        : "Xem chi tiết"}
                     </button>
                   )}
                 </div>

@@ -355,7 +355,7 @@ export default function TopupRequestModal({
                           show("Đã tải QR code thành công!");
                         }
                       }}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
                     >
                       <span>💾</span>
                       Tải QR
@@ -408,7 +408,7 @@ export default function TopupRequestModal({
                             );
                             show("Đã copy số tài khoản!");
                           }}
-                          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
                           title="Copy số tài khoản"
                         >
                           📋

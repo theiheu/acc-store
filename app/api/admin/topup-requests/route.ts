@@ -16,10 +16,15 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
 
     // Get requests based on status filter
-    const requests =
-      status === "pending"
-        ? dataStore.getPendingTopupRequests()
-        : dataStore.getTopupRequests();
+    const allRequests = dataStore.getTopupRequests();
+    let requests = allRequests;
+
+    if (status && status !== "all") {
+      const allowed = new Set(["pending", "approved", "rejected"]);
+      if (allowed.has(status)) {
+        requests = allRequests.filter((r) => r.status === status);
+      }
+    }
 
     // Apply pagination
     const total = requests.length;

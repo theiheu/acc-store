@@ -1,6 +1,10 @@
 "use client";
+/*
+Add keyframes for modal animation using Tailwind's arbitrary value syntax is limited;
+we add a small CSS block here for the custom keyframes used in the Modal component.
+*/
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
@@ -29,11 +33,11 @@ function AdminTopupRequestsPageInner() {
       if (data.success) {
         setRequests(data.data.requests);
       } else {
-        show(data.error || "Failed to fetch requests", "error");
+        show(data.error || "Failed to fetch requests");
       }
     } catch (error) {
       console.error("Error fetching requests:", error);
-      show("Failed to fetch requests", "error");
+      show("Failed to fetch requests");
     } finally {
       setLoading(false);
     }
@@ -77,14 +81,14 @@ function AdminTopupRequestsPageInner() {
       const data = await response.json();
 
       if (data.success) {
-        show(`Request ${action}d successfully`, "success");
+        show(`Request ${action}d successfully`);
         fetchRequests(); // Refresh the list
       } else {
-        show(data.error || `Failed to ${action} request`, "error");
+        show(data.error || `Failed to ${action} request`);
       }
     } catch (error) {
       console.error(`Error ${action}ing request:`, error);
-      show(`Failed to ${action} request`, "error");
+      show(`Failed to ${action} request`);
     } finally {
       setProcessingId(null);
     }
@@ -294,7 +298,7 @@ function AdminTopupRequestsPageInner() {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key as any)}
-                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer ${
                   filter === tab.key
                     ? "bg-blue-100 text-blue-700 dark:bg-blue-300/20 dark:text-blue-300"
                     : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
@@ -362,12 +366,45 @@ function TopupRequestItem({
       </span>
     );
   }
-  const [showDetails, setShowDetails] = useState(false);
-  const [approveAmount, setApproveAmount] = useState(
-    request.requestedAmount.toString()
-  );
-  const [adminNotes, setAdminNotes] = useState("");
-  const [rejectionReason, setRejectionReason] = useState("");
+  // Quick actions with custom modals
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReasonInput, setRejectReasonInput] = useState("");
+
+  const openApproveModal = () => setApproveOpen(true);
+  const openRejectModal = () => {
+    setRejectReasonInput("");
+    setRejectOpen(true);
+  };
+  const closeApproveModal = () => setApproveOpen(false);
+  const closeRejectModal = () => setRejectOpen(false);
+
+  const confirmApprove = () => {
+    const amount = request.requestedAmount;
+    onProcess(request.id, "approve", { approvedAmount: amount });
+    closeApproveModal();
+  };
+
+  const confirmReject = () => {
+    if (!rejectReasonInput.trim()) return;
+    onProcess(request.id, "reject", {
+      rejectionReason: rejectReasonInput.trim(),
+    });
+    closeRejectModal();
+  };
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (approveOpen) closeApproveModal();
+        if (rejectOpen) closeRejectModal();
+      }
+    }
+    if (approveOpen || rejectOpen) {
+      document.addEventListener("keydown", onKeyDown);
+      return () => document.removeEventListener("keydown", onKeyDown);
+    }
+  }, [approveOpen, rejectOpen]);
 
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
@@ -397,35 +434,10 @@ function TopupRequestItem({
     }
   };
 
-  const handleApprove = () => {
-    const amount = parseInt(approveAmount.replace(/[^\d]/g, ""));
-    if (!amount || amount < 10000 || amount > 10000000) {
-      alert("Số tiền phải từ 10,000 đến 10,000,000 VND");
-      return;
-    }
-
-    onProcess(request.id, "approve", {
-      approvedAmount: amount,
-      adminNotes: adminNotes.trim(),
-    });
-  };
-
-  const handleReject = () => {
-    if (!rejectionReason.trim()) {
-      alert("Vui lòng nhập lý do từ chối");
-      return;
-    }
-
-    onProcess(request.id, "reject", {
-      rejectionReason: rejectionReason.trim(),
-      adminNotes: adminNotes.trim(),
-    });
-  };
-
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
+    <div className="p-4">
+      <div className="flex justify-between items-start w-full p-3 h-full bg-blue-50 dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/20 rounded mx-auto">
+        <div>
           <div className="flex items-center gap-3 mb-2">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">
               {request.userName}
@@ -442,37 +454,133 @@ function TopupRequestItem({
             </span>
             <BalanceBadge email={request.userEmail} />
           </div>
-
-          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-            <p>Email: {request.userEmail}</p>
+        </div>
+        <div className="flex-1 mt-8 p-4 text-sm text-gray-600 dark:text-gray-400 space-y-1">
+          <p>Email: {request.userEmail}</p>
+          <p>
+            Số tiền yêu cầu:{" "}
+            <span className="font-semibold text-blue-600">
+              {formatCurrency(request.requestedAmount)}
+            </span>
+          </p>
+          {request.processedAt && (
             <p>
-              Số tiền yêu cầu:{" "}
-              <span className="font-semibold text-blue-600">
-                {formatCurrency(request.requestedAmount)}
+              Xử lý lúc: {new Date(request.processedAt).toLocaleString("vi-VN")}{" "}
+              bởi {request.processedByName}
+            </p>
+          )}
+          {request.transferContent && (
+            <div>
+              Nội dung:{" "}
+              <span className=" text-blue-800 font-bold">
+                {request.transferContent}
               </span>
-            </p>
-            <p>
-              Thời gian: {new Date(request.createdAt).toLocaleString("vi-VN")}
-            </p>
-            {request.processedAt && (
-              <p>
-                Xử lý lúc:{" "}
-                {new Date(request.processedAt).toLocaleString("vi-VN")} bởi{" "}
-                {request.processedByName}
-              </p>
-            )}
-          </div>
+            </div>
+          )}
+          <p>
+            Thời gian: {new Date(request.createdAt).toLocaleString("vi-VN")}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="px-3 py-1 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded"
-          >
-            {showDetails ? "Ẩn" : "Chi tiết"}
-          </button>
+          {request.status === "pending" && (
+            <>
+              <button
+                onClick={openApproveModal}
+                disabled={isProcessing}
+                className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded cursor-pointer"
+                title="Duyệt yêu cầu với số tiền đã yêu cầu"
+              >
+                Duyệt
+              </button>
+              <button
+                onClick={openRejectModal}
+                disabled={isProcessing}
+                className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded cursor-pointer"
+                title="Từ chối nhanh, sẽ hỏi lý do"
+              >
+                Từ chối
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Approve Modal */}
+      <Modal
+        open={approveOpen}
+        onClose={closeApproveModal}
+        title="Xác nhận duyệt yêu cầu"
+        footer={
+          <>
+            <button
+              onClick={closeApproveModal}
+              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded cursor-pointer"
+              title="Đóng"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={confirmApprove}
+              autoFocus
+              className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded cursor-pointer"
+            >
+              Xác nhận duyệt
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm">
+          <p>
+            Duyệt nạp cho:{" "}
+            <span className="font-medium">{request.userEmail}</span>
+          </p>
+          <p>
+            Số tiền:{" "}
+            <span className="font-semibold text-green-700 dark:text-green-300">
+              {formatCurrency(request.requestedAmount)}
+            </span>
+          </p>
+        </div>
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal
+        open={rejectOpen}
+        onClose={closeRejectModal}
+        title="Từ chối yêu cầu nạp tiền"
+        footer={
+          <>
+            <button
+              onClick={closeRejectModal}
+              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded"
+            >
+              Hủy
+            </button>
+            <button
+              onClick={confirmReject}
+              disabled={!rejectReasonInput.trim()}
+              className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded cursor-pointer"
+            >
+              Xác nhận từ chối
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Lý do từ chối
+          </label>
+          <textarea
+            value={rejectReasonInput}
+            onChange={(e) => setRejectReasonInput(e.target.value)}
+            rows={3}
+            autoFocus
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded text-sm bg-white dark:bg-gray-800"
+            placeholder="Nhập lý do từ chối..."
+          />
+        </div>
+      </Modal>
 
       {/* User Notes */}
       {request.userNotes && (
@@ -485,199 +593,48 @@ function TopupRequestItem({
           </p>
         </div>
       )}
-
-      {/* QR Code Information */}
-      {request.qrCodeData && (
-        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/20 rounded">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-              Thông tin chuyển khoản:
-            </p>
-            <span className="text-xs text-blue-600 dark:text-blue-400">
-              QR Code đã tạo
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs text-blue-700 dark:text-blue-300">
-            {request.bankInfo && (
-              <>
-                <div>
-                  Ngân hàng:{" "}
-                  <span className="font-medium">
-                    {request.bankInfo.bankName}
-                  </span>
-                </div>
-                <div>
-                  STK:{" "}
-                  <span className="font-mono">
-                    {request.bankInfo.accountNumber}
-                  </span>
-                </div>
-              </>
-            )}
-            <div>
-              Số tiền:{" "}
-              <span className="font-bold">
-                {formatCurrency(request.requestedAmount)}
-              </span>
-            </div>
-            {request.transferContent && (
-              <div>
-                Nội dung:{" "}
-                <span className="font-mono">{request.transferContent}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Details and Actions */}
-      {showDetails && request.status === "pending" && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
-          {/* Approve Section */}
-          <div className="bg-green-50 dark:bg-green-300/10 rounded-lg p-4">
-            <h4 className="font-medium text-green-800 dark:text-green-200 mb-3">
-              Duyệt yêu cầu
-            </h4>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-1">
-                  Số tiền duyệt (VND)
-                </label>
-                <input
-                  type="text"
-                  value={approveAmount}
-                  onChange={(e) => {
-                    const formatted = e.target.value.replace(/[^\d]/g, "");
-                    if (formatted) {
-                      setApproveAmount(
-                        parseInt(formatted).toLocaleString("vi-VN")
-                      );
-                    } else {
-                      setApproveAmount("");
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-green-300 rounded text-sm"
-                  placeholder="Nhập số tiền"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-1">
-                  Ghi chú admin
-                </label>
-                <input
-                  type="text"
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-green-300 rounded text-sm"
-                  placeholder="Ghi chú (tùy chọn)"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={handleApprove}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded text-sm font-medium"
-            >
-              {isProcessing ? "Đang xử lý..." : "Duyệt yêu cầu"}
-            </button>
-          </div>
-
-          {/* Reject Section */}
-          <div className="bg-red-50 dark:bg-red-300/10 rounded-lg p-4">
-            <h4 className="font-medium text-red-800 dark:text-red-200 mb-3">
-              Từ chối yêu cầu
-            </h4>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-red-700 dark:text-red-300 mb-1">
-                Lý do từ chối *
-              </label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full px-3 py-2 border border-red-300 rounded text-sm"
-                rows={2}
-                placeholder="Nhập lý do từ chối..."
-              />
-            </div>
-
-            <button
-              onClick={handleReject}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white rounded text-sm font-medium"
-            >
-              {isProcessing ? "Đang xử lý..." : "Từ chối yêu cầu"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Processed Request Info */}
-      {request.status !== "pending" && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-          {request.status === "approved" && (
-            <div className="bg-green-50 dark:bg-green-300/10 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg
-                  className="w-4 h-4 text-green-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                  Đã duyệt: {formatCurrency(request.approvedAmount || 0)}
-                </span>
-              </div>
-              {request.adminNotes && (
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  Ghi chú: {request.adminNotes}
-                </p>
-              )}
-            </div>
-          )}
-
-          {request.status === "rejected" && (
-            <div className="bg-red-50 dark:bg-red-300/10 rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg
-                  className="w-4 h-4 text-red-600"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                  Từ chối
-                </span>
-              </div>
-              {request.rejectionReason && (
-                <p className="text-sm text-red-700 dark:text-red-300 mb-2">
-                  Lý do: {request.rejectionReason}
-                </p>
-              )}
-              {request.adminNotes && (
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  Ghi chú: {request.adminNotes}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
+// Simple modal component
+function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-150 ease-out"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-md transform overflow-hidden rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-lg transition-all duration-150 ease-out opacity-100 scale-100">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+          <h3 className="text-lg font-semibold">{title}</h3>
+        </div>
+        <div className="p-4">{children}</div>
+        {footer && (
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex justify-end gap-2">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 export default withAdminAuth(AdminTopupRequestsPageInner);

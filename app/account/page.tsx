@@ -85,13 +85,6 @@ export default function AccountPage() {
               Quản lý thông tin cá nhân và đơn hàng
             </p>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-300/10 rounded-lg transition-colors"
-          >
-            <span>🚪</span>
-            Đăng xuất
-          </button>
         </div>
       </div>
 

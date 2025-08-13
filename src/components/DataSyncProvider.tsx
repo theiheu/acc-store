@@ -152,15 +152,20 @@ export function DataSyncProvider({
       setLastUpdate(new Date());
     },
     onTopupRequestCreated: (data) => {
-      setTopupRequests(dataStore.getTopupRequests());
+      // Merge created request into local state without reading from store
+      const req = data.request;
+      setTopupRequests((prev) => [req, ...prev.filter((r) => r.id !== req.id)]);
       setLastUpdate(new Date());
     },
     onTopupRequestUpdated: (data) => {
-      setTopupRequests(dataStore.getTopupRequests());
+      // Merge updates into local state
+      const req = data.request;
+      setTopupRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
       setLastUpdate(new Date());
     },
     onTopupRequestProcessed: (data) => {
-      setTopupRequests(dataStore.getTopupRequests());
+      const req = data.request;
+      setTopupRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
       setUsers(dataStore.getUsers()); // Update users in case balance changed
       setTransactions(dataStore.getTransactions()); // Update transactions
       if (currentUser && currentUser.id === data.request.userId) {

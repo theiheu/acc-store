@@ -8,6 +8,9 @@ import { useRouter } from "next/navigation";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
+import { useCurrentUser, useDataSync } from "@/src/components/DataSyncProvider";
+import { useAccountRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import { formatCurrency } from "@/src/core/admin";
 
 export default function AuthButton() {
   const [open, setOpen] = useState(false);
@@ -17,6 +20,20 @@ export default function AuthButton() {
   const router = useRouter();
   const { show } = useToastContext();
   const { withLoading } = useGlobalLoading();
+  const currentUser = useCurrentUser();
+  const { getUserTransactions, lastUpdate } = useDataSync();
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  // Set up real-time updates for this user
+  const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
+
+  // Update transactions when data changes
+  useEffect(() => {
+    if (currentUser) {
+      const userTransactions = getUserTransactions(currentUser.id);
+      setTransactions(userTransactions.slice(0, 5)); // Show last 5 transactions
+    }
+  }, [currentUser, getUserTransactions, lastUpdate]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -82,7 +99,7 @@ export default function AuthButton() {
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           disabled={isSigningOut}
-          className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {/* Avatar */}
           {avatar ? (
@@ -122,18 +139,35 @@ export default function AuthButton() {
           <div
             role="menu"
             aria-label="Tài khoản"
-            className="absolute right-0 mt-2 min-w-56 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-1 z-50"
+            className="absolute right-0 mt-2 min-w-64 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-1 z-50"
           >
-            {/* User Info */}
-            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {user.name || "Người dùng"}
-              </p>
-              {user.email && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user.email}
-                </p>
-              )}
+            {/* User Info / Balance */}
+            <div className="px-3 py-3 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Số dư tài khoản
+                  </p>
+                  <p className="mt-0.5 text-2xl font-bold text-amber-900 dark:text-amber-100">
+                    {currentUser ? formatCurrency(currentUser.balance) : "0 ₫"}
+                  </p>
+                  {currentUser && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Cập nhật:{" "}
+                      {new Date(lastUpdate).toLocaleTimeString("vi-VN")}
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href="/deposit"
+                  onClick={() => setOpen(false)}
+                  className="shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-md bg-amber-500 hover:bg-amber-600 text-white cursor-pointer transition-colors"
+                  title="Nạp tiền nhanh"
+                >
+                  <span>＋</span>
+                  Nạp tiền
+                </Link>
+              </div>
             </div>
 
             {/* Menu Items */}
@@ -142,7 +176,7 @@ export default function AuthButton() {
               role="menuitem"
               tabIndex={0}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
             >
               <span className="text-base">👤</span>
               Thông tin tài khoản
@@ -153,7 +187,7 @@ export default function AuthButton() {
               role="menuitem"
               tabIndex={0}
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
             >
               <span className="text-base">📦</span>
               Đơn hàng của tôi
@@ -166,7 +200,7 @@ export default function AuthButton() {
               tabIndex={0}
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-red-50 dark:hover:bg-red-300/10 text-red-600 dark:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-red-50 dark:hover:bg-red-300/10 text-red-600 dark:text-red-400 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="text-base">🚪</span>
               Đăng xuất

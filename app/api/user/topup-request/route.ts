@@ -70,20 +70,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has pending requests
+    // Check if user has pending requests. If exists, update the latest with new details and reuse it
     const pendingRequests = dataStore
       .getUserTopupRequests(user.id)
-      .filter((req) => req.status === "pending");
+      .filter((req) => req.status === "pending")
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    if (pendingRequests.length >= 3) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "You have too many pending requests. Please wait for them to be processed.",
+    if (pendingRequests.length > 0) {
+      const latest = pendingRequests[0];
+      const updated = dataStore.updateTopupRequest(latest.id, {
+        requestedAmount: amount,
+        userNotes: notes || latest.userNotes,
+        qrCodeData,
+        transferContent,
+        bankInfo,
+      });
+
+      return NextResponse.json({
+        success: true,
+        reused: true,
+        message: "Đã cập nhật yêu cầu nạp tiền đang chờ với thông tin mới.",
+        data: {
+          requestId: latest.id,
+          amount: updated?.requestedAmount ?? amount,
+          status: updated?.status ?? latest.status,
+          createdAt: updated?.createdAt ?? latest.createdAt,
         },
-        { status: 400 }
-      );
+      });
     }
 
     // Create top-up request with QR code data
