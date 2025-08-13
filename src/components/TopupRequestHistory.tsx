@@ -5,6 +5,7 @@ import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
 import QRCodeGenerator from "./QRCodeGenerator";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import { useToastContext } from "@/src/components/ToastProvider";
 
 interface TopupRequestHistoryProps {
   refreshTrigger?: number;
@@ -17,6 +18,7 @@ export default function TopupRequestHistory({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedQR, setExpandedQR] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchRequests = async () => {
     try {
@@ -35,6 +37,43 @@ export default function TopupRequestHistory({
       setError("Failed to fetch requests");
     } finally {
       setLoading(false);
+    }
+  }; // end fetchRequests
+
+  const { show } = useToastContext();
+
+  const cancelRequest = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn hủy yêu cầu nạp tiền này không?")) return;
+    try {
+      setCancellingId(id);
+      const res = await fetch(`/api/user/topup-request/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: "rejected",
+                  rejectionReason: "Người dùng hủy yêu cầu",
+                  processedAt: new Date() as any,
+                }
+              : r
+          )
+        );
+        show("Đã hủy yêu cầu nạp tiền");
+      } else {
+        show(data.error || "Không thể hủy yêu cầu");
+      }
+    } catch (e) {
+      console.error(e);
+      show("Có lỗi xảy ra, vui lòng thử lại");
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -180,6 +219,8 @@ export default function TopupRequestHistory({
                       <p>Xử lý bởi: {request.processedByName}</p>
                     )}
                   </div>
+                </div>
+                <div>
                   {/* QR Code Button for Pending Requests */}
                   {request.status === "pending" && request.qrCodeData && (
                     <button
@@ -188,12 +229,27 @@ export default function TopupRequestHistory({
                           expandedQR === request.id ? null : request.id
                         )
                       }
-                      className="mt-2 px-3 py-1 text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
+                      className="mt-2 px-3 py-1 w-[100px] text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
                     >
                       {expandedQR === request.id
                         ? "Ẩn chi tiết"
                         : "Xem chi tiết"}
                     </button>
+                  )}
+
+                  {/* Cancel button for pending */}
+                  {request.status === "pending" && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => cancelRequest(request.id)}
+                        disabled={cancellingId === request.id}
+                        className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-300/20 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {cancellingId === request.id
+                          ? "Đang hủy..."
+                          : "Hủy yêu cầu"}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
