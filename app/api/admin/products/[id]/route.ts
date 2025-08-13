@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission, logAdminAction, getCurrentAdmin } from "@/src/core/admin-auth";
+import {
+  requireAdminPermission,
+  logAdminAction,
+  getCurrentAdmin,
+} from "@/src/core/admin-auth";
 import { AdminProduct } from "@/src/core/admin";
-import { products } from "@/src/core/products";
-
-// Convert regular products to admin products with additional fields
-const MOCK_ADMIN_PRODUCTS: AdminProduct[] = products.map((product, index) => ({
-  ...product,
-  stock: 50 + Math.floor(Math.random() * 100), // Random stock 50-150
-  sold: Math.floor(Math.random() * 200), // Random sold count
-  isActive: true,
-  createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random date in last 30 days
-  updatedAt: new Date(),
-  createdBy: "admin-1",
-  lastModifiedBy: "admin-1",
-}));
+import { dataStore } from "@/src/core/data-store";
 
 // GET /api/admin/products/[id] - Get single product
 export async function GET(
@@ -26,7 +18,7 @@ export async function GET(
 
   try {
     const productId = params.id;
-    const product = MOCK_ADMIN_PRODUCTS.find((p) => p.id === productId);
+    const product = dataStore.getProduct(productId);
 
     if (!product) {
       return NextResponse.json(
@@ -75,8 +67,8 @@ export async function PUT(
     const productId = params.id;
     const updateData = await request.json();
 
-    const productIndex = MOCK_ADMIN_PRODUCTS.findIndex((p) => p.id === productId);
-    if (productIndex === -1) {
+    const oldProduct = dataStore.getProduct(productId);
+    if (!oldProduct) {
       return NextResponse.json(
         {
           success: false,
@@ -86,8 +78,6 @@ export async function PUT(
       );
     }
 
-    const oldProduct = { ...MOCK_ADMIN_PRODUCTS[productIndex] };
-    
     // Validate price if provided
     if (updateData.price !== undefined && updateData.price <= 0) {
       return NextResponse.json(
@@ -110,16 +100,16 @@ export async function PUT(
       );
     }
 
-    // Update product data
-    const updatedProduct: AdminProduct = {
-      ...MOCK_ADMIN_PRODUCTS[productIndex],
-      ...updateData,
-      updatedAt: new Date(),
-      lastModifiedBy: admin.id,
-    };
-
-    // In a real app, save to database
-    MOCK_ADMIN_PRODUCTS[productIndex] = updatedProduct;
+    // Update product data using data store with admin info for activity logging
+    const updatedProduct = dataStore.updateProduct(
+      productId,
+      {
+        ...updateData,
+        lastModifiedBy: admin.id,
+      },
+      admin.id,
+      admin.name
+    );
 
     // Log admin action
     await logAdminAction(
@@ -166,9 +156,9 @@ export async function DELETE(
     }
 
     const productId = params.id;
-    const productIndex = MOCK_ADMIN_PRODUCTS.findIndex((p) => p.id === productId);
-    
-    if (productIndex === -1) {
+    const product = dataStore.getProduct(productId);
+
+    if (!product) {
       return NextResponse.json(
         {
           success: false,
@@ -178,13 +168,21 @@ export async function DELETE(
       );
     }
 
-    const deletedProduct = MOCK_ADMIN_PRODUCTS[productIndex];
-    
     // Check if product has pending orders (in a real app)
     // For now, we'll allow deletion but log it
-    
-    // In a real app, you might want to soft delete instead
-    MOCK_ADMIN_PRODUCTS.splice(productIndex, 1);
+
+    // Delete product using data store with admin info for activity logging
+    const deleted = dataStore.deleteProduct(productId, admin.id, admin.name);
+
+    if (!deleted) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to delete product",
+        },
+        { status: 500 }
+      );
+    }
 
     // Log admin action
     await logAdminAction(
@@ -192,8 +190,8 @@ export async function DELETE(
       "delete_product",
       "product",
       productId,
-      `Deleted product: ${deletedProduct.title}`,
-      { deletedProduct }
+      `Deleted product: ${product.title}`,
+      { deletedProduct: product }
     );
 
     return NextResponse.json({
@@ -233,7 +231,9 @@ export async function PATCH(
     const productId = params.id;
     const { action, value } = await request.json();
 
-    const productIndex = MOCK_ADMIN_PRODUCTS.findIndex((p) => p.id === productId);
+    const productIndex = MOCK_ADMIN_PRODUCTS.findIndex(
+      (p) => p.id === productId
+    );
     if (productIndex === -1) {
       return NextResponse.json(
         {
@@ -251,9 +251,11 @@ export async function PATCH(
     switch (action) {
       case "toggle_active":
         updatedProduct.isActive = !product.isActive;
-        actionDescription = `${updatedProduct.isActive ? "Activated" : "Deactivated"} product: ${product.title}`;
+        actionDescription = `${
+          updatedProduct.isActive ? "Activated" : "Deactivated"
+        } product: ${product.title}`;
         break;
-      
+
       case "update_stock":
         if (typeof value !== "number" || value < 0) {
           return NextResponse.json(
@@ -264,7 +266,7 @@ export async function PATCH(
         updatedProduct.stock = value;
         actionDescription = `Updated stock for ${product.title} to ${value}`;
         break;
-      
+
       case "adjust_stock":
         if (typeof value !== "number") {
           return NextResponse.json(
@@ -282,7 +284,7 @@ export async function PATCH(
         updatedProduct.stock = newStock;
         actionDescription = `Adjusted stock for ${product.title} by ${value} (new stock: ${newStock})`;
         break;
-      
+
       default:
         return NextResponse.json(
           { success: false, error: "Invalid action" },

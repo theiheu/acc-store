@@ -4,11 +4,13 @@ import { useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProductCard from "@/src/components/ProductCard";
 import CategorySidebar from "@/src/components/CategorySidebar";
-import { products, type CategoryId } from "@/src/core/products";
+import { type CategoryId } from "@/src/core/products";
+import { useProducts } from "@/src/components/DataSyncProvider";
 
 export default function ProductsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const products = useProducts(); // Get real-time products
 
   const [category, setCategory] = useState<CategoryId>("all");
   const [q, setQ] = useState<string>("");

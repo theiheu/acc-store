@@ -30,6 +30,13 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     permission: "canManageUsers",
   },
   {
+    id: "topup-requests",
+    label: "Yêu cầu nạp tiền",
+    icon: "💳",
+    href: "/admin/topup-requests",
+    permission: "canManageUsers",
+  },
+  {
     id: "products",
     label: "Quản lý sản phẩm",
     icon: "📦",
@@ -104,7 +111,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               </h1>
             </div>
           </div>
-          
+
           {/* Close button for mobile */}
           <button
             onClick={onClose}
@@ -136,10 +143,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {SIDEBAR_ITEMS.map((item) => (
-            <AdminPermissionGate
-              key={item.id}
-              permission={item.permission!}
-            >
+            <AdminPermissionGate key={item.id} permission={item.permission!}>
               <Link
                 href={item.href}
                 onClick={onClose}

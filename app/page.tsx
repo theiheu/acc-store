@@ -7,11 +7,13 @@ import ProductCard from "@/src/components/ProductCard";
 import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
 import HomePageSkeleton from "@/src/components/HomePageSkeleton";
 import CategorySidebar from "@/src/components/CategorySidebar";
-import { products, type CategoryId, type Product } from "@/src/core/products";
+import { type CategoryId, type Product } from "@/src/core/products";
+import { useProducts } from "@/src/components/DataSyncProvider";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const products = useProducts(); // Get real-time products
   const [category, setCategory] = useState<CategoryId>("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");

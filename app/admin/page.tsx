@@ -5,6 +5,7 @@ import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
+import { useDashboardStats } from "@/src/components/DataSyncProvider";
 import { DashboardStats } from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
@@ -13,6 +14,7 @@ function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const { show } = useToastContext();
+  const realtimeStats = useDashboardStats(); // Get real-time stats
 
   useEffect(() => {
     fetchDashboardStats();
@@ -22,12 +24,35 @@ function AdminDashboard() {
     try {
       setLoading(true);
       const response = await fetch("/api/admin/dashboard");
+
+      // Check if response is ok
+      if (!response.ok) {
+        console.error(
+          "Dashboard API response not ok:",
+          response.status,
+          response.statusText
+        );
+        show(`Lỗi API: ${response.status} ${response.statusText}`);
+        return;
+      }
+
+      // Check content type
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Dashboard API returned non-JSON response:", contentType);
+        const text = await response.text();
+        console.error("Response body:", text.substring(0, 500));
+        show("API trả về dữ liệu không hợp lệ");
+        return;
+      }
+
       const result = await response.json();
 
       if (result.success) {
         setStats(result.data);
       } else {
-        show("Không thể tải dữ liệu dashboard");
+        console.error("Dashboard API returned error:", result.error);
+        show(result.error || "Không thể tải dữ liệu dashboard");
       }
     } catch (error) {
       console.error("Fetch dashboard stats error:", error);
@@ -71,10 +96,12 @@ function AdminDashboard() {
                   Tổng người dùng
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats.totalUsers.toLocaleString()}
+                  {(
+                    stats?.totalUsers || realtimeStats.totalUsers
+                  ).toLocaleString()}
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  {stats.activeUsers} hoạt động
+                  {stats?.activeUsers || realtimeStats.activeUsers} hoạt động
                 </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-300/10 rounded-lg flex items-center justify-center">
@@ -90,10 +117,11 @@ function AdminDashboard() {
                   Sản phẩm
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats.totalProducts}
+                  {stats?.totalProducts || realtimeStats.totalProducts}
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  {stats.activeProducts} đang bán
+                  {stats?.activeProducts || realtimeStats.activeProducts} đang
+                  bán
                 </p>
               </div>
               <div className="w-12 h-12 bg-green-100 dark:bg-green-300/10 rounded-lg flex items-center justify-center">
@@ -217,7 +245,10 @@ function AdminDashboard() {
             </h3>
             <div className="space-y-3">
               {stats.topSellingProducts.map((product, index) => (
-                <div key={product.productId} className="flex items-center justify-between">
+                <div
+                  key={product.productId}
+                  className="flex items-center justify-between"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-amber-100 dark:bg-amber-300/10 rounded-lg flex items-center justify-center">
                       <span className="text-sm font-bold text-amber-800 dark:text-amber-200">
@@ -241,6 +272,69 @@ function AdminDashboard() {
             </div>
           </div>
 
+          {/* Recent Users */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Người dùng mới
+              </h3>
+              <div
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${
+                  realtimeStats
+                    ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                }`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    realtimeStats ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                ></div>
+                {realtimeStats ? "Cập nhật tự động" : "Mất kết nối"}
+              </div>
+            </div>
+            <div className="space-y-3">
+              {realtimeStats.recentUsers?.slice(0, 5).map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-300/10 rounded-full flex items-center justify-center">
+                      <span className="text-lg">👤</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        user.status === "active"
+                          ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200"
+                          : "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-200"
+                      }`}
+                    >
+                      {user.status === "active" ? "Hoạt động" : "Tạm khóa"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {new Date(user.createdAt).toLocaleDateString("vi-VN")}
+                    </p>
+                  </div>
+                </div>
+              )) || (
+                <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                  Chưa có người dùng mới
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Recent Activity */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -251,9 +345,13 @@ function AdminDashboard() {
                 <div key={activity.id} className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
                     <span className="text-sm">
-                      {activity.targetType === "user" ? "👤" : 
-                       activity.targetType === "product" ? "📦" : 
-                       activity.targetType === "order" ? "🛒" : "⚙️"}
+                      {activity.targetType === "user"
+                        ? "👤"
+                        : activity.targetType === "product"
+                        ? "📦"
+                        : activity.targetType === "order"
+                        ? "🛒"
+                        : "⚙️"}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">

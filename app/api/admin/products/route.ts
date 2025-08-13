@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission, logAdminAction, getCurrentAdmin } from "@/src/core/admin-auth";
-import { AdminProduct, ProductSearchFilters, PaginatedResponse } from "@/src/core/admin";
-import { products, Product } from "@/src/core/products";
-
-// Convert regular products to admin products with additional fields
-const MOCK_ADMIN_PRODUCTS: AdminProduct[] = products.map((product, index) => ({
-  ...product,
-  stock: 50 + Math.floor(Math.random() * 100), // Random stock 50-150
-  sold: Math.floor(Math.random() * 200), // Random sold count
-  isActive: true,
-  createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random date in last 30 days
-  updatedAt: new Date(),
-  createdBy: "admin-1",
-  lastModifiedBy: "admin-1",
-}));
+import {
+  requireAdminPermission,
+  logAdminAction,
+  getCurrentAdmin,
+} from "@/src/core/admin-auth";
+import {
+  AdminProduct,
+  ProductSearchFilters,
+  PaginatedResponse,
+} from "@/src/core/admin";
+import { dataStore } from "@/src/core/data-store";
 
 // GET /api/admin/products - List products with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -23,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    
+
     // Parse query parameters
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
@@ -34,8 +30,8 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") || "desc";
 
-    // Filter products
-    let filteredProducts = [...MOCK_ADMIN_PRODUCTS];
+    // Get products from data store
+    let filteredProducts = dataStore.getProducts();
 
     if (search) {
       const searchLower = search.toLowerCase();
@@ -47,16 +43,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (category && category !== "all") {
-      filteredProducts = filteredProducts.filter((product) => product.category === category);
+      filteredProducts = filteredProducts.filter(
+        (product) => product.category === category
+      );
     }
 
     if (isActive !== null && isActive !== undefined) {
       const activeFilter = isActive === "true";
-      filteredProducts = filteredProducts.filter((product) => product.isActive === activeFilter);
+      filteredProducts = filteredProducts.filter(
+        (product) => product.isActive === activeFilter
+      );
     }
 
     if (lowStock) {
-      filteredProducts = filteredProducts.filter((product) => product.stock < 20); // Low stock threshold
+      filteredProducts = filteredProducts.filter(
+        (product) => product.stock < 20
+      ); // Low stock threshold
     }
 
     // Sort products
@@ -123,9 +125,14 @@ export async function POST(request: NextRequest) {
     }
 
     const productData = await request.json();
-    
+
     // Validate required fields
-    if (!productData.title || !productData.description || !productData.price || !productData.category) {
+    if (
+      !productData.title ||
+      !productData.description ||
+      !productData.price ||
+      !productData.category
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -146,8 +153,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if product with same title already exists
-    const existingProduct = MOCK_ADMIN_PRODUCTS.find(
-      (product) => product.title.toLowerCase() === productData.title.toLowerCase()
+    const existingProducts = dataStore.getProducts();
+    const existingProduct = existingProducts.find(
+      (product) =>
+        product.title.toLowerCase() === productData.title.toLowerCase()
     );
     if (existingProduct) {
       return NextResponse.json(
@@ -159,31 +168,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create new product
-    const newProduct: AdminProduct = {
-      id: `product-${Date.now()}`,
-      title: productData.title,
-      description: productData.description,
-      price: productData.price,
-      currency: productData.currency || "VND",
-      imageEmoji: productData.imageEmoji,
-      imageUrl: productData.imageUrl,
-      badge: productData.badge,
-      longDescription: productData.longDescription,
-      faqs: productData.faqs || [],
-      category: productData.category,
-      options: productData.options || [],
-      stock: productData.stock || 0,
-      sold: 0,
-      isActive: productData.isActive !== false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: admin.id,
-      lastModifiedBy: admin.id,
-    };
-
-    // In a real app, save to database
-    MOCK_ADMIN_PRODUCTS.push(newProduct);
+    // Create new product using data store with admin info for activity logging
+    const newProduct = dataStore.createProduct(
+      {
+        title: productData.title,
+        description: productData.description,
+        price: productData.price,
+        currency: productData.currency || "VND",
+        imageEmoji: productData.imageEmoji,
+        imageUrl: productData.imageUrl,
+        badge: productData.badge,
+        longDescription: productData.longDescription,
+        faqs: productData.faqs || [],
+        category: productData.category,
+        options: productData.options || [],
+        stock: productData.stock || 0,
+        sold: 0,
+        isActive: productData.isActive !== false,
+        createdBy: admin.id,
+        lastModifiedBy: admin.id,
+      },
+      admin.id,
+      admin.name
+    );
 
     // Log admin action
     await logAdminAction(

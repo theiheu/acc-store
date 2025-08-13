@@ -1,55 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission, logAdminAction, getCurrentAdmin } from "@/src/core/admin-auth";
+import {
+  requireAdminPermission,
+  logAdminAction,
+  getCurrentAdmin,
+} from "@/src/core/admin-auth";
 import { AdminUser, UserTransaction, UserTopUpRequest } from "@/src/core/admin";
-
-// Mock user data - same as in other files
-const MOCK_USERS: AdminUser[] = [
-  {
-    id: "user-1",
-    email: "user1@example.com",
-    name: "Nguyễn Văn A",
-    role: "user",
-    status: "active",
-    balance: 150000,
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-20"),
-    lastLoginAt: new Date("2024-01-20"),
-    totalOrders: 5,
-    totalSpent: 245000,
-    registrationSource: "google",
-  },
-  {
-    id: "user-2",
-    email: "user2@example.com",
-    name: "Trần Thị B",
-    role: "user",
-    status: "active",
-    balance: 75000,
-    createdAt: new Date("2024-01-10"),
-    updatedAt: new Date("2024-01-18"),
-    lastLoginAt: new Date("2024-01-18"),
-    totalOrders: 3,
-    totalSpent: 180000,
-    registrationSource: "facebook",
-  },
-  {
-    id: "user-3",
-    email: "user3@example.com",
-    name: "Lê Văn C",
-    role: "user",
-    status: "suspended",
-    balance: 0,
-    createdAt: new Date("2024-01-05"),
-    updatedAt: new Date("2024-01-16"),
-    lastLoginAt: new Date("2024-01-15"),
-    totalOrders: 1,
-    totalSpent: 49000,
-    registrationSource: "google",
-  },
-];
-
-// Mock transactions storage
-const MOCK_TRANSACTIONS: UserTransaction[] = [];
+import { dataStore } from "@/src/core/data-store";
 
 // POST /api/admin/users/[id]/topup - Add credits to user account
 export async function POST(
@@ -83,7 +39,8 @@ export async function POST(
       );
     }
 
-    if (topUpData.amount > 10000000) { // Max 10M VND per transaction
+    if (topUpData.amount > 10000000) {
+      // Max 10M VND per transaction
       return NextResponse.json(
         {
           success: false,
@@ -104,8 +61,8 @@ export async function POST(
     }
 
     // Find user
-    const userIndex = MOCK_USERS.findIndex((u) => u.id === userId);
-    if (userIndex === -1) {
+    const user = dataStore.getUser(userId);
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
@@ -114,8 +71,6 @@ export async function POST(
         { status: 404 }
       );
     }
-
-    const user = MOCK_USERS[userIndex];
 
     // Check if user is active
     if (user.status !== "active") {
@@ -128,34 +83,47 @@ export async function POST(
       );
     }
 
-    // Update user balance
+    // Update user balance using data store with admin info for activity logging
     const oldBalance = user.balance;
     const newBalance = oldBalance + topUpData.amount;
-    
-    MOCK_USERS[userIndex] = {
-      ...user,
-      balance: newBalance,
-      updatedAt: new Date(),
-    };
 
-    // Create transaction record
-    const transaction: UserTransaction = {
-      id: `tx-${Date.now()}`,
+    console.log("Updating user balance:", {
+      userId,
+      userEmail: user.email,
+      oldBalance,
+      newBalance,
+      amount: topUpData.amount,
+    });
+
+    const updatedUser = dataStore.updateUser(
+      userId,
+      { balance: newBalance },
+      admin.id,
+      admin.name
+    );
+
+    console.log("User updated:", updatedUser ? "success" : "failed");
+
+    // Create transaction record using data store
+    const transaction = dataStore.createTransaction({
       userId: userId,
       type: "credit",
       amount: topUpData.amount,
       description: topUpData.description,
       adminId: admin.id,
-      createdAt: new Date(),
       metadata: {
         adminNote: topUpData.adminNote,
         oldBalance,
         newBalance,
       },
-    };
+    });
 
-    // In a real app, save transaction to database
-    MOCK_TRANSACTIONS.push(transaction);
+    console.log("Transaction created:", {
+      transactionId: transaction.id,
+      userId: transaction.userId,
+      amount: transaction.amount,
+      type: transaction.type,
+    });
 
     // Log admin action for audit
     await logAdminAction(
@@ -163,7 +131,7 @@ export async function POST(
       "user_credit_add",
       "user",
       userId,
-      `Added ${topUpData.amount.toLocaleString('vi-VN')} VND to ${user.email}`,
+      `Added ${topUpData.amount.toLocaleString("vi-VN")} VND to ${user.email}`,
       {
         amount: topUpData.amount,
         oldBalance,
@@ -176,9 +144,11 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        user: MOCK_USERS[userIndex],
+        user: updatedUser,
         transaction,
-        message: `Successfully added ${topUpData.amount.toLocaleString('vi-VN')} VND to user account`,
+        message: `Successfully added ${topUpData.amount.toLocaleString(
+          "vi-VN"
+        )} VND to user account`,
       },
     });
   } catch (error) {
@@ -208,8 +178,8 @@ export async function GET(
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    // Find user
-    const user = MOCK_USERS.find((u) => u.id === userId);
+    // Find user using data store
+    const user = dataStore.getUser(userId);
     if (!user) {
       return NextResponse.json(
         {
@@ -220,10 +190,8 @@ export async function GET(
       );
     }
 
-    // Get user's transactions
-    const userTransactions = MOCK_TRANSACTIONS
-      .filter((tx) => tx.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Get user's transactions from data store
+    const userTransactions = dataStore.getUserTransactions(userId);
 
     // Paginate
     const total = userTransactions.length;

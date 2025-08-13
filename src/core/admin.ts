@@ -119,7 +119,7 @@ export interface ActivityLog {
   adminId: string;
   adminName: string;
   action: string;
-  targetType: "user" | "product" | "order" | "system";
+  targetType: "user" | "product" | "order" | "system" | "topup-request";
   targetId?: string;
   description: string;
   metadata?: Record<string, any>;
@@ -128,10 +128,44 @@ export interface ActivityLog {
   createdAt: Date;
 }
 
+// Top-up request management types
+export interface TopupRequest {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  requestedAmount: number;
+  approvedAmount?: number;
+  userNotes?: string;
+  adminNotes?: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  createdAt: Date;
+  processedAt?: Date;
+  processedBy?: string; // Admin ID
+  processedByName?: string; // Admin name
+  transactionId?: string; // Created when approved
+  rejectionReason?: string;
+  // QR Code integration
+  qrCodeData?: string; // QR code data for payment
+  transferContent?: string; // Bank transfer content
+  bankInfo?: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  };
+}
+
 export interface AuditLogEntry {
   id: string;
   adminId: string;
-  action: "user_credit_add" | "user_status_change" | "product_create" | "product_update" | "product_delete" | "order_update";
+  action:
+    | "user_credit_add"
+    | "user_status_change"
+    | "product_create"
+    | "product_update"
+    | "product_delete"
+    | "order_update";
   targetId: string;
   oldValue?: any;
   newValue?: any;
@@ -236,11 +270,17 @@ export function isAdmin(user: User | null): boolean {
   return user?.role === "admin";
 }
 
-export function hasPermission(admin: AdminProfile, permission: keyof AdminPermissions): boolean {
+export function hasPermission(
+  admin: AdminProfile,
+  permission: keyof AdminPermissions
+): boolean {
   return admin.permissions[permission];
 }
 
-export function formatCurrency(amount: number, currency: string = "VND"): string {
+export function formatCurrency(
+  amount: number,
+  currency: string = "VND"
+): string {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency,
@@ -248,7 +288,10 @@ export function formatCurrency(amount: number, currency: string = "VND"): string
   }).format(amount);
 }
 
-export function calculateProfitMargin(sellingPrice: number, costPrice: number): number {
+export function calculateProfitMargin(
+  sellingPrice: number,
+  costPrice: number
+): number {
   if (costPrice === 0) return 0;
   return ((sellingPrice - costPrice) / sellingPrice) * 100;
 }
