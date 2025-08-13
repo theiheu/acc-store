@@ -18,16 +18,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user from data store
-    const user = dataStore.getUserByEmail(session.user.email);
+    // Get or create user from data store (fallback for in-memory reset)
+    let user = dataStore.getUserByEmail(session.user.email);
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found",
-        },
-        { status: 404 }
-      );
+      user = dataStore.createUser({
+        email: session.user.email,
+        name: session.user.name || session.user.email.split("@")[0],
+        role: "user",
+        status: "active",
+        balance: 0,
+        totalOrders: 0,
+        totalSpent: 0,
+        registrationSource: "api-fallback",
+      });
     }
 
     // Parse request body
@@ -133,16 +136,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user from data store
-    const user = dataStore.getUserByEmail(session.user.email);
+    // Get or create user from data store (fallback for in-memory reset)
+    let user = dataStore.getUserByEmail(session.user.email);
     if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found",
-        },
-        { status: 404 }
-      );
+      user = dataStore.createUser({
+        email: session.user.email,
+        name: session.user.name || session.user.email.split("@")[0],
+        role: "user",
+        status: "active",
+        balance: 0,
+        totalOrders: 0,
+        totalSpent: 0,
+        registrationSource: "api-fallback",
+      });
     }
 
     // Get user's top-up requests

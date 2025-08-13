@@ -587,14 +587,6 @@ Nội dung: ${transferContent}`;
 
       {/* Top-up Request History Section */}
       <div className="mt-12">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Lịch sử yêu cầu nạp tiền
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Theo dõi trạng thái các yêu cầu nạp tiền của bạn
-          </p>
-        </div>
         <TopupRequestHistory refreshTrigger={topupRefreshTrigger} />
       </div>
     </div>

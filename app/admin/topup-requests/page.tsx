@@ -8,6 +8,7 @@ import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
 import QRCodeGenerator from "@/src/components/QRCodeGenerator";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import { useDataSync } from "@/src/components/DataSyncProvider";
 
 function AdminTopupRequestsPageInner() {
   const [requests, setRequests] = useState<TopupRequest[]>([]);
@@ -349,6 +350,18 @@ function TopupRequestItem({
   onProcess: (id: string, action: "approve" | "reject", options?: any) => void;
   isProcessing: boolean;
 }) {
+  const { getUserByEmail } = useDataSync();
+
+  function BalanceBadge({ email }: { email: string }) {
+    const user = getUserByEmail(email);
+    if (!user) return null;
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-300/10 border border-amber-200 dark:border-amber-300/20 text-amber-700 dark:text-amber-300 text-xs font-semibold">
+        <span>💰</span>
+        {formatCurrency(user.balance)}
+      </span>
+    );
+  }
   const [showDetails, setShowDetails] = useState(false);
   const [approveAmount, setApproveAmount] = useState(
     request.requestedAmount.toString()
@@ -420,6 +433,14 @@ function TopupRequestItem({
             <span className={getStatusBadge(request.status)}>
               {getStatusText(request.status)}
             </span>
+          </div>
+
+          {/* User current balance */}
+          <div className="mt-1">
+            <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+              Số dư hiện tại:
+            </span>
+            <BalanceBadge email={request.userEmail} />
           </div>
 
           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">

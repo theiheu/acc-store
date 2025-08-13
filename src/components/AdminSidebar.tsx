@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth, AdminPermissionGate } from "./AdminAuthProvider";
+import { useDataSync } from "@/src/components/DataSyncProvider";
 
 interface SidebarItem {
   id: string;
@@ -81,6 +82,8 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
+  const { getPendingTopupRequests } = useDataSync();
+  const pendingTopupCount = getPendingTopupRequests().length;
   const { adminProfile } = useAdminAuth();
 
   return (
@@ -155,9 +158,16 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               >
                 <span className="text-lg">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
-                {item.badge && (
+                {/* Orders badge (static mock) */}
+                {item.badge && item.id !== "topup-requests" && (
                   <span className="px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-full">
                     {item.badge}
+                  </span>
+                )}
+                {/* Dynamic pending top-up count */}
+                {item.id === "topup-requests" && pendingTopupCount > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-full">
+                    {pendingTopupCount}
                   </span>
                 )}
               </Link>

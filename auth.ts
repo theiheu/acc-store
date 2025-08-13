@@ -32,7 +32,29 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   callbacks: {
-    async session({ session, token }) {
+    async session({ session }) {
+      try {
+        // Ensure the user exists in the in-memory dataStore even after server restarts
+        if (session?.user?.email) {
+          const existing = dataStore.getUserByEmail(session.user.email);
+          if (!existing) {
+            dataStore.createUser({
+              email: session.user.email,
+              name: session.user.name || session.user.email.split("@")[0],
+              role: "user",
+              status: "active",
+              balance: 0,
+              totalOrders: 0,
+              totalSpent: 0,
+              registrationSource: "session",
+            });
+          } else {
+            dataStore.updateUser(existing.id, { lastLoginAt: new Date() });
+          }
+        }
+      } catch (e) {
+        console.warn("session callback ensure user failed:", e);
+      }
       return session;
     },
     async jwt({ token, user }) {

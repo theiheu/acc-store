@@ -127,6 +127,9 @@ export default function TopupRequestHistory({
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Lịch sử yêu cầu nạp tiền
         </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Theo dõi trạng thái các yêu cầu nạp tiền của bạn
+        </p>
         <button
           onClick={fetchRequests}
           className="text-blue-600 hover:text-blue-700 dark:text-blue-400 text-sm font-medium"
