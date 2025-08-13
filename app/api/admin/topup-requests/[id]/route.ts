@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission, getCurrentAdmin, logAdminAction } from "@/src/core/admin-auth";
+import {
+  requireAdminPermission,
+  getCurrentAdmin,
+  logAdminAction,
+} from "@/src/core/admin-auth";
 import { dataStore } from "@/src/core/data-store";
 
 // GET /api/admin/topup-requests/[id] - Get specific top-up request
@@ -7,19 +11,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Check admin permissions
+  const authError = await requireAdminPermission(request, "canManageUsers");
+  if (authError) return authError;
   try {
-    // Check admin permissions
-    const hasPermission = await requireAdminPermission("manage_users");
-    if (!hasPermission) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Insufficient permissions",
-        },
-        { status: 403 }
-      );
-    }
-
     const requestId = params.id;
     const topupRequest = dataStore.getTopupRequest(requestId);
 
@@ -37,7 +32,6 @@ export async function GET(
       success: true,
       data: topupRequest,
     });
-
   } catch (error) {
     console.error("Error fetching top-up request:", error);
     return NextResponse.json(
@@ -55,19 +49,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // Check admin permissions
+  const authError = await requireAdminPermission(request, "canManageUsers");
+  if (authError) return authError;
   try {
-    // Check admin permissions
-    const hasPermission = await requireAdminPermission("manage_users");
-    if (!hasPermission) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Insufficient permissions",
-        },
-        { status: 403 }
-      );
-    }
-
     // Get current admin
     const admin = await getCurrentAdmin();
     if (!admin) {
@@ -134,7 +119,8 @@ export async function POST(
           return NextResponse.json(
             {
               success: false,
-              error: "Approved amount must be between 10,000 and 10,000,000 VND",
+              error:
+                "Approved amount must be between 10,000 and 10,000,000 VND",
             },
             { status: 400 }
           );
@@ -182,7 +168,9 @@ export async function POST(
       action === "approve" ? "approve_topup_request" : "reject_topup_request",
       "topup-request",
       requestId,
-      `${action === "approve" ? "Approved" : "Rejected"} top-up request for ${topupRequest.userName}`,
+      `${action === "approve" ? "Approved" : "Rejected"} top-up request for ${
+        topupRequest.userName
+      }`,
       {
         originalAmount: topupRequest.requestedAmount,
         approvedAmount: result.request.approvedAmount,
@@ -200,7 +188,6 @@ export async function POST(
         transaction: result.transaction,
       },
     });
-
   } catch (error) {
     console.error("Error processing top-up request:", error);
     return NextResponse.json(

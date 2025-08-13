@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminPermission, getCurrentAdmin } from "@/src/core/admin-auth";
+import { requireAdminPermission } from "@/src/core/admin-auth";
 import { dataStore } from "@/src/core/data-store";
 
 // GET /api/admin/topup-requests - Get all top-up requests
 export async function GET(request: NextRequest) {
-  try {
-    // Check admin permissions
-    const hasPermission = await requireAdminPermission("manage_users");
-    if (!hasPermission) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Insufficient permissions",
-        },
-        { status: 403 }
-      );
-    }
+  // Check admin permissions
+  const authError = await requireAdminPermission(request, "canManageUsers");
+  if (authError) return authError;
 
+  try {
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -24,9 +16,10 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0");
 
     // Get requests based on status filter
-    let requests = status === "pending" 
-      ? dataStore.getPendingTopupRequests()
-      : dataStore.getTopupRequests();
+    const requests =
+      status === "pending"
+        ? dataStore.getPendingTopupRequests()
+        : dataStore.getTopupRequests();
 
     // Apply pagination
     const total = requests.length;
@@ -44,7 +37,6 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-
   } catch (error) {
     console.error("Error fetching top-up requests:", error);
     return NextResponse.json(

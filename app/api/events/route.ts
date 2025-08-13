@@ -6,12 +6,31 @@ export async function GET(request: NextRequest) {
   // Create a readable stream for SSE
   const stream = new ReadableStream({
     start(controller) {
+      // Track closed state to avoid double-closing the stream
+      let closed = false;
+
+      const safeClose = () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch (e) {
+          // Ignore errors when controller is already closed
+        }
+      };
+
       // Send initial connection message
       const encoder = new TextEncoder();
 
       const sendEvent = (event: string, data: any) => {
-        const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-        controller.enqueue(encoder.encode(message));
+        if (closed) return;
+        try {
+          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        } catch (e) {
+          // If enqueue fails (e.g., stream closed), close safely
+          safeClose();
+        }
       };
 
       // Send initial connection confirmation
@@ -20,6 +39,7 @@ export async function GET(request: NextRequest) {
       // Subscribe to data store events
       const unsubscribe = dataStore.subscribe((event: DataStoreEvent) => {
         try {
+          if (closed) return;
           console.log("SSE: Broadcasting event:", event.type, event.payload);
           switch (event.type) {
             case "USER_UPDATED":
@@ -105,27 +125,32 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Handle client disconnect
-      request.signal.addEventListener("abort", () => {
-        unsubscribe();
-        controller.close();
-      });
-
       // Send periodic heartbeat to keep connection alive
       const heartbeat = setInterval(() => {
         try {
           sendEvent("heartbeat", { timestamp: new Date().toISOString() });
         } catch (error) {
+          // If heartbeat fails, clean up and close safely
           clearInterval(heartbeat);
           unsubscribe();
-          controller.close();
+          safeClose();
         }
       }, 30000); // Every 30 seconds
+
+      // Handle client disconnect
+      request.signal.addEventListener("abort", () => {
+        try {
+          clearInterval(heartbeat);
+        } catch {}
+        unsubscribe();
+        safeClose();
+      });
 
       // Clean up on stream close
       return () => {
         clearInterval(heartbeat);
         unsubscribe();
+        safeClose();
       };
     },
   });

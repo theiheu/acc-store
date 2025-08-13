@@ -126,16 +126,33 @@ export default function DepositPage() {
       return;
     }
 
+    const numericAmount = parseInt(amount.replace(/[^\d]/g, "")) || 0;
+    const qrData = `${BANK_CONFIG.bankCode}|${BANK_CONFIG.accountNumber}|${BANK_CONFIG.accountName}|${numericAmount}|${transferContent}`;
+
     try {
       await withLoading(async () => {
-        // Simulate processing time
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const res = await fetch("/api/user/topup-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            amount: numericAmount,
+            notes: "",
+            qrCodeData: qrData,
+            transferContent,
+            bankInfo: BANK_CONFIG,
+          }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          throw new Error(data.error || "Tạo yêu cầu thất bại");
+        }
         setShowQR(true);
-      }, "Đang tạo mã QR...");
+        setTopupRefreshTrigger((v) => v + 1);
+      }, "Đang tạo mã QR và lưu yêu cầu...");
 
-      show("Mã QR đã được tạo thành công!");
+      show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!", "success");
     } catch (error) {
-      show("Có lỗi xảy ra khi tạo mã QR");
+      show("Có lỗi xảy ra khi tạo yêu cầu nạp tiền", "error");
       console.error("QR generation error:", error);
     }
   };

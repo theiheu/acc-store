@@ -162,6 +162,10 @@ export async function GET(request: NextRequest) {
         processedByName: req.processedByName,
         rejectionReason: req.rejectionReason,
         transactionId: req.transactionId,
+        // Include QR-related fields so history can render QR and bank info
+        qrCodeData: req.qrCodeData,
+        transferContent: req.transferContent,
+        bankInfo: req.bankInfo,
       })),
     });
   } catch (error) {

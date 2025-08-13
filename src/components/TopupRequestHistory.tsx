@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
 import QRCodeGenerator from "./QRCodeGenerator";
+import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
 interface TopupRequestHistoryProps {
   refreshTrigger?: number;
@@ -36,6 +37,15 @@ export default function TopupRequestHistory({
       setLoading(false);
     }
   };
+
+  // Real-time: subscribe to SSE and refresh on updates
+  useRealtimeUpdates({
+    onTopupRequestCreated: () => fetchRequests(),
+    onTopupRequestUpdated: () => fetchRequests(),
+    onTopupRequestProcessed: () => fetchRequests(),
+    onTransactionCreated: () => fetchRequests(),
+    showNotifications: false,
+  });
 
   useEffect(() => {
     fetchRequests();
