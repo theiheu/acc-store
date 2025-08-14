@@ -156,7 +156,7 @@ export default function DepositPage() {
 
       show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!");
     } catch (error) {
-      show("Có lỗi xảy ra khi tạo yêu cầu nạp tiền", "error");
+      show("Có lỗi xảy ra khi tạo yêu cầu nạp tiền");
       console.error("QR generation error:", error);
     }
   };

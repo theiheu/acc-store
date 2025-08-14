@@ -16,10 +16,10 @@ const __isServer = typeof window === "undefined";
 let __fs: any = null as any;
 let __path: any = null as any;
 if (__isServer) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  __fs = require("fs");
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  __path = require("path");
+  // Use eval to avoid client bundlers trying to resolve Node built-ins
+  const __req = eval("require");
+  __fs = __req("fs");
+  __path = __req("path");
 }
 
 // Event system for real-time updates
@@ -47,6 +47,8 @@ class DataStore {
   private topupRequests: Map<string, TopupRequest> = new Map();
   private activities: ActivityLog[] = [];
   private listeners: EventListener[] = [];
+  // Orders are persisted in a separate file; basic in-memory map for now
+  private orders: Map<string, import("./admin").Order> = new Map();
 
   // === Persistence (server-only) ===
   private baseDir = __isServer ? __path.join(process.cwd(), ".data") : "";
@@ -58,6 +60,7 @@ class DataStore {
       : "",
     topups: __isServer ? __path.join(this.baseDir, "topups.json") : "",
     activities: __isServer ? __path.join(this.baseDir, "activities.json") : "",
+    orders: __isServer ? __path.join(this.baseDir, "orders.json") : "",
   };
 
   private saveTimer: any = null;
@@ -105,6 +108,11 @@ class DataStore {
       __fs.writeFileSync(
         this.files.activities,
         toJSON(this.activities),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.orders,
+        toJSON(Array.from(this.orders.values())),
         "utf-8"
       );
     } catch (e) {
@@ -170,6 +178,14 @@ class DataStore {
       if (Array.isArray(activities)) {
         activities.forEach((a) => reviveDates(a));
         this.activities = activities;
+      }
+
+      const orders = parseJSON(this.files.orders);
+      if (Array.isArray(orders)) {
+        orders.forEach((o) => {
+          reviveDates(o);
+          this.orders.set(o.id, o);
+        });
       }
     } catch (e) {
       console.error("Load persisted data error:", e);
@@ -902,6 +918,34 @@ class DataStore {
       topSellingProducts,
       recentActivity: this.getRecentActivity(5),
     };
+  }
+
+  // === Orders APIs (basic) ===
+  getOrdersByUser(userId: string) {
+    return Array.from(this.orders.values()).filter((o) => o.userId === userId);
+  }
+
+  getOrder(id: string) {
+    return this.orders.get(id) || null;
+  }
+
+  createOrder(order: import("./admin").Order) {
+    this.orders.set(order.id, order);
+    this.scheduleSave();
+    return order;
+  }
+
+  updateOrder(id: string, updates: Partial<import("./admin").Order>) {
+    const cur = this.orders.get(id);
+    if (!cur) return null;
+    const upd = { ...cur, ...updates, updatedAt: new Date() };
+    this.orders.set(id, upd);
+    this.scheduleSave();
+    return upd;
+  }
+
+  getAllOrders() {
+    return Array.from(this.orders.values());
   }
 }
 

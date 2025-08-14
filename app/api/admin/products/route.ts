@@ -187,6 +187,7 @@ export async function POST(request: NextRequest) {
         isActive: productData.isActive !== false,
         createdBy: admin.id,
         lastModifiedBy: admin.id,
+        supplier: productData.supplier,
       },
       admin.id,
       admin.name

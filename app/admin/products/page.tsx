@@ -164,6 +164,33 @@ function ProductManagement() {
           </Link>
         </div>
 
+        {/* Sync Button */}
+        <div>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/admin/products/sync", {
+                  method: "POST",
+                });
+                const data = await res.json();
+                if (data.success) {
+                  show(
+                    `Đồng bộ thành công ${data.data.updated.length} sản phẩm`
+                  );
+                  fetchProducts();
+                } else {
+                  show(data.error || "Không thể đồng bộ sản phẩm");
+                }
+              } catch (e) {
+                show("Có lỗi xảy ra khi đồng bộ sản phẩm");
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg"
+          >
+            🔄 Đồng bộ sản phẩm
+          </button>
+        </div>
+
         {/* Products Table */}
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
           {loading ? (

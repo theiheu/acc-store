@@ -1,7 +1,14 @@
 import { NextRequest } from "next/server";
 import { dataStore, DataStoreEvent } from "@/src/core/data-store";
 
+import { ensureAutoSyncStarted } from "@/src/services/autoSync";
+
 // Server-Sent Events endpoint for real-time updates
+// Ensure background auto sync is running on first SSE connection
+try {
+  ensureAutoSyncStarted();
+} catch {}
+
 export async function GET(request: NextRequest) {
   // Create a readable stream for SSE
   const stream = new ReadableStream({

@@ -6,9 +6,10 @@ import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
-import { AdminProduct } from "@/src/core/admin";
-import { CATEGORIES } from "@/src/core/products";
+import { AdminProduct, type SupplierInfo } from "@/src/core/admin";
+import { CATEGORIES, type ProductOption } from "@/src/core/products";
 import LoadingButton from "@/src/components/LoadingButton";
+import OptionsEditor from "@/src/components/OptionsEditor";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
 
 interface ProductFormData {
@@ -23,6 +24,8 @@ interface ProductFormData {
   badge: string;
   stock: number;
   isActive: boolean;
+  options?: ProductOption[];
+  supplier?: SupplierInfo;
 }
 
 function EditProduct() {
@@ -31,7 +34,7 @@ function EditProduct() {
   const productId = params.id as string;
   const { withLoading } = useGlobalLoading();
   const { show } = useToastContext();
-  
+
   const [product, setProduct] = useState<AdminProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -78,6 +81,8 @@ function EditProduct() {
           badge: productData.badge || "",
           stock: productData.stock || 0,
           isActive: productData.isActive !== false,
+          options: productData.options || [],
+          supplier: productData.supplier,
         });
       } else {
         show("Không thể tải thông tin sản phẩm");
@@ -152,10 +157,10 @@ function EditProduct() {
   }
 
   function handleInputChange(field: keyof ProductFormData, value: any) {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   }
 
@@ -170,7 +175,7 @@ function EditProduct() {
 
         const result = await response.json();
         if (result.success) {
-          setFormData(prev => ({ ...prev, stock: newStock }));
+          setFormData((prev) => ({ ...prev, stock: newStock }));
           show("Đã cập nhật số lượng kho");
         } else {
           show("Không thể cập nhật kho");
@@ -184,7 +189,10 @@ function EditProduct() {
 
   if (loading) {
     return (
-      <AdminLayout title="Chỉnh sửa sản phẩm" description="Cập nhật thông tin sản phẩm">
+      <AdminLayout
+        title="Chỉnh sửa sản phẩm"
+        description="Cập nhật thông tin sản phẩm"
+      >
         <div className="flex items-center justify-center h-64">
           <LoadingSpinner size="lg" />
         </div>
@@ -194,7 +202,10 @@ function EditProduct() {
 
   if (!product) {
     return (
-      <AdminLayout title="Chỉnh sửa sản phẩm" description="Cập nhật thông tin sản phẩm">
+      <AdminLayout
+        title="Chỉnh sửa sản phẩm"
+        description="Cập nhật thông tin sản phẩm"
+      >
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400">
             Không tìm thấy sản phẩm
@@ -204,263 +215,205 @@ function EditProduct() {
     );
   }
 
+  async function syncStock() {
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/sync-stock`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        show("Đồng bộ kho thành công");
+        setFormData((prev) => ({
+          ...prev,
+          stock: data.data.stock,
+          price: data.data.price ?? prev.price,
+        }));
+      } else {
+        show(data.error || "Không thể đồng bộ kho");
+      }
+    } catch (e) {
+      show("Có lỗi xảy ra khi đồng bộ kho");
+    }
+  }
+
   return (
-    <AdminLayout 
-      title={`Chỉnh sửa: ${product.title}`} 
+    <AdminLayout
+      title="Chỉnh sửa sản phẩm"
       description="Cập nhật thông tin sản phẩm"
     >
-      <div className="max-w-4xl mx-auto">
-        {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Thao tác nhanh
-          </h3>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Kho hiện tại:</span>
-              <span className="font-medium">{formData.stock}</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => handleQuickStockUpdate(formData.stock + 10)}
-                  className="px-2 py-1 text-xs bg-green-100 dark:bg-green-300/10 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-300/20"
-                >
-                  +10
-                </button>
-                <button
-                  onClick={() => handleQuickStockUpdate(Math.max(0, formData.stock - 10))}
-                  className="px-2 py-1 text-xs bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-300/20"
-                >
-                  -10
-                </button>
-              </div>
-            </div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Thông tin sản phẩm</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={syncStock}
+              className="rounded-md border px-3 py-1.5 text-sm"
+            >
+              Đồng bộ kho
+            </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Thông tin cơ bản
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tên sản phẩm *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.title ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="Nhập tên sản phẩm"
-                />
-                {errors.title && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
-                )}
-              </div>
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        >
+          {/* Left */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Tên sản phẩm</label>
+              <input
+                value={formData.title}
+                onChange={(e) => handleInputChange("title", e.target.value)}
+                className="mt-1 w-full border rounded-md px-3 py-2"
+              />
+              {errors.title && (
+                <p className="text-sm text-red-600 mt-1">{errors.title}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Mô tả</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  handleInputChange("description", e.target.value)
+                }
+                className="mt-1 w-full border rounded-md px-3 py-2"
+              />
+              {errors.description && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.description}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Giá bán</label>
+              <input
+                type="number"
+                value={formData.price}
+                onChange={(e) =>
+                  handleInputChange("price", Number(e.target.value))
+                }
+                className="mt-1 w-full border rounded-md px-3 py-2"
+              />
+              {errors.price && (
+                <p className="text-sm text-red-600 mt-1">{errors.price}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Số lượng kho</label>
+              <input
+                type="number"
+                value={formData.stock}
+                onChange={(e) =>
+                  handleInputChange("stock", Number(e.target.value))
+                }
+                className="mt-1 w-full border rounded-md px-3 py-2"
+              />
+              {errors.stock && (
+                <p className="text-sm text-red-600 mt-1">{errors.stock}</p>
+              )}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Danh mục *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => handleInputChange("category", e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.category ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  }`}
-                >
-                  {CATEGORIES.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mô tả ngắn *
-                </label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.description ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="Mô tả ngắn gọn về sản phẩm"
-                />
-                {errors.description && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Icon Emoji
-                </label>
-                <input
-                  type="text"
-                  value={formData.imageEmoji}
-                  onChange={(e) => handleInputChange("imageEmoji", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="📦"
+            {/* Options Editor */}
+            <div>
+              <label className="block text-sm font-medium">
+                Tùy chọn (Options)
+              </label>
+              <div className="mt-2">
+                <OptionsEditor
+                  value={formData.options}
+                  onChange={(opts) => handleInputChange("options", opts)}
                 />
               </div>
             </div>
+          </div>
 
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Mô tả chi tiết
-              </label>
-              <textarea
-                value={formData.longDescription}
-                onChange={(e) => handleInputChange("longDescription", e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                placeholder="Mô tả chi tiết về sản phẩm, tính năng, lợi ích..."
+          {/* Right */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Danh mục</label>
+              <select
+                value={formData.category}
+                onChange={(e) => handleInputChange("category", e.target.value)}
+                className="mt-1 w-full border rounded-md px-3 py-2"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Supplier markup */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium">
+                  Giá gốc (TAPHOAMMO)
+                </label>
+                <input
+                  type="number"
+                  value={product?.supplier?.basePrice ?? 0}
+                  onChange={(e) =>
+                    setProduct((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            supplier: {
+                              ...prev.supplier,
+                              basePrice: Number(e.target.value) || 0,
+                            } as any,
+                          }
+                        : prev
+                    )
+                  }
+                  className="mt-1 w-full border rounded-md px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium">% lợi nhuận</label>
+                <input
+                  type="number"
+                  value={product?.supplier?.markupPercent ?? 0}
+                  onChange={(e) =>
+                    setProduct((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            supplier: {
+                              ...prev.supplier,
+                              markupPercent: Number(e.target.value) || 0,
+                            } as any,
+                          }
+                        : prev
+                    )
+                  }
+                  className="mt-1 w-full border rounded-md px-3 py-2"
+                />
+              </div>
+              <div className="col-span-2 text-xs text-gray-500">
+                Gợi ý giá bán = Giá gốc × (1 + % lợi nhuận). Bạn có thể chỉnh
+                tay ô Giá bán ở trái.
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium">Hoạt động</label>
+              <input
+                type="checkbox"
+                checked={formData.isActive}
+                onChange={(e) =>
+                  handleInputChange("isActive", e.target.checked)
+                }
               />
             </div>
-          </div>
 
-          {/* Pricing & Inventory */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Giá cả & Kho hàng
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Giá bán *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange("price", parseInt(e.target.value) || 0)}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="0"
-                />
-                {errors.price && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.price}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Đơn vị tiền tệ
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => handleInputChange("currency", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                >
-                  <option value="VND">VND</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Số lượng kho
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.stock}
-                  onChange={(e) => handleInputChange("stock", parseInt(e.target.value) || 0)}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.stock ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="0"
-                />
-                {errors.stock && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.stock}</p>
-                )}
-              </div>
+            <div className="pt-2">
+              <LoadingButton type="submit" loading={saving}>
+                Lưu thay đổi
+              </LoadingButton>
             </div>
-          </div>
-
-          {/* Settings */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Cài đặt
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Badge (tùy chọn)
-                </label>
-                <select
-                  value={formData.badge}
-                  onChange={(e) => handleInputChange("badge", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                >
-                  <option value="">Không có badge</option>
-                  <option value="new">New</option>
-                  <option value="hot">Hot</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  URL hình ảnh (tùy chọn)
-                </label>
-                <input
-                  type="text"
-                  value={formData.imageUrl}
-                  onChange={(e) => handleInputChange("imageUrl", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="/thumbs/product.svg"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={formData.isActive}
-                  onChange={(e) => handleInputChange("isActive", e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-700 text-amber-600 focus:ring-amber-500"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Sản phẩm đang được bán
-                </span>
-              </label>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-4">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              Hủy
-            </button>
-            <LoadingButton
-              type="submit"
-              loading={saving}
-              loadingText="Đang cập nhật..."
-              className="px-6 py-2 bg-amber-300 text-gray-900 hover:bg-amber-400 rounded-lg transition-colors font-medium"
-            >
-              Cập nhật sản phẩm
-            </LoadingButton>
           </div>
         </form>
       </div>

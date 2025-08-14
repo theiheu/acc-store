@@ -6,8 +6,10 @@ import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
-import { CATEGORIES } from "@/src/core/products";
+import { CATEGORIES, type ProductOption } from "@/src/core/products";
+import type { SupplierInfo } from "@/src/core/admin";
 import LoadingButton from "@/src/components/LoadingButton";
+import OptionsEditor from "@/src/components/OptionsEditor";
 
 interface ProductFormData {
   title: string;
@@ -21,13 +23,16 @@ interface ProductFormData {
   badge: string;
   stock: number;
   isActive: boolean;
+  options?: ProductOption[];
+  supplier?: SupplierInfo;
 }
 
 function CreateProduct() {
   const router = useRouter();
-  const { withLoading } = useGlobalLoading();
+  const { withLoading, isLoading } = useGlobalLoading();
   const { show } = useToastContext();
   const [saving, setSaving] = useState(false);
+  const [kioskToken, setKioskToken] = useState("");
   const [formData, setFormData] = useState<ProductFormData>({
     title: "",
     description: "",
@@ -40,6 +45,7 @@ function CreateProduct() {
     badge: "",
     stock: 0,
     isActive: true,
+    options: [],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -103,17 +109,90 @@ function CreateProduct() {
     }
   }
 
+  async function fetchFromSupplier() {
+    const token = kioskToken.trim();
+    if (!token) {
+      show("Vui lòng nhập TAPHOAMMO_KIOSK_TOKEN");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/products/fetch-supplier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kioskToken: token }),
+      });
+      const data = await res.json();
+      if (!data?.success) {
+        show(data?.error || "Không thể lấy dữ liệu từ TAPHOAMMO");
+        return;
+      }
+      const items: Array<{ name: string; stock: number; basePrice: number }> =
+        data.data.items || [];
+      if (items.length === 0) {
+        show("Không có dữ liệu sản phẩm hợp lệ");
+        return;
+      }
+      // With kiosk token, we map the first item to current product base info and options list
+      const first = items[0];
+      // Validation
+      if (!Number.isFinite(first.basePrice) || first.basePrice <= 0) {
+        show("Giá gốc không hợp lệ từ TAPHOAMMO");
+        return;
+      }
+      if (!Number.isFinite(first.stock) || first.stock < 0) {
+        show("Tồn kho không hợp lệ từ TAPHOAMMO");
+        return;
+      }
+
+      // Create optimized options from TAPHOAMMO items with direct price and stock
+      const newOptions = items.map((it, idx) => ({
+        id: `taphoammo_${idx}_${Date.now()}`,
+        label: it.name,
+        price: it.basePrice,
+        stock: it.stock,
+        description: `Từ TAPHOAMMO - ${new Intl.NumberFormat("vi-VN").format(
+          it.basePrice
+        )} đ`,
+      }));
+
+      setFormData((prev) => {
+        // Add new flat options to existing ones
+        const existing = prev.options || [];
+        const merged = [...existing, ...newOptions];
+        return {
+          ...prev,
+          // Không thay đổi thông tin sản phẩm chính (tên/giá/kho) theo yêu cầu
+          supplier: {
+            provider: "taphoammo",
+            kioskToken: token,
+            basePrice: first.basePrice,
+            lastStock: first.stock,
+            lastSyncedAt: new Date(),
+          } as any,
+          options: merged,
+        };
+      });
+
+      show("Đã tải dữ liệu từ TAPHOAMMO và thêm vào tùy chọn sản phẩm");
+    } catch (e) {
+      console.error("fetchFromSupplier error", e);
+      show("Có lỗi khi kết nối TAPHOAMMO. Vui lòng thử lại");
+    } finally {
+      // loading handled by withLoading
+    }
+  }
+
   function handleInputChange(field: keyof ProductFormData, value: any) {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: "" }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
   }
 
   return (
-    <AdminLayout 
-      title="Thêm sản phẩm mới" 
+    <AdminLayout
+      title="Thêm sản phẩm mới"
       description="Tạo sản phẩm mới trong hệ thống"
     >
       <div className="max-w-4xl mx-auto">
@@ -123,7 +202,7 @@ function CreateProduct() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Thông tin cơ bản
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -134,12 +213,16 @@ function CreateProduct() {
                   value={formData.title}
                   onChange={(e) => handleInputChange("title", e.target.value)}
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.title ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    errors.title
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
                   }`}
                   placeholder="Nhập tên sản phẩm"
                 />
                 {errors.title && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.title}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.title}
+                  </p>
                 )}
               </div>
 
@@ -149,9 +232,13 @@ function CreateProduct() {
                 </label>
                 <select
                   value={formData.category}
-                  onChange={(e) => handleInputChange("category", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("category", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.category ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    errors.category
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
                   }`}
                 >
                   {CATEGORIES.map((category) => (
@@ -161,7 +248,9 @@ function CreateProduct() {
                   ))}
                 </select>
                 {errors.category && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.category}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.category}
+                  </p>
                 )}
               </div>
 
@@ -172,14 +261,20 @@ function CreateProduct() {
                 <input
                   type="text"
                   value={formData.description}
-                  onChange={(e) => handleInputChange("description", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("description", e.target.value)
+                  }
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.description ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    errors.description
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
                   }`}
                   placeholder="Mô tả ngắn gọn về sản phẩm"
                 />
                 {errors.description && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.description}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.description}
+                  </p>
                 )}
               </div>
 
@@ -190,7 +285,9 @@ function CreateProduct() {
                 <input
                   type="text"
                   value={formData.imageEmoji}
-                  onChange={(e) => handleInputChange("imageEmoji", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("imageEmoji", e.target.value)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   placeholder="📦"
                 />
@@ -203,7 +300,9 @@ function CreateProduct() {
               </label>
               <textarea
                 value={formData.longDescription}
-                onChange={(e) => handleInputChange("longDescription", e.target.value)}
+                onChange={(e) =>
+                  handleInputChange("longDescription", e.target.value)
+                }
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 placeholder="Mô tả chi tiết về sản phẩm, tính năng, lợi ích..."
@@ -211,12 +310,51 @@ function CreateProduct() {
             </div>
           </div>
 
+          {/* Option Editor với TAPHOAMMO tích hợp */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              Tùy chọn sản phẩm (Options)
+            </h3>
+            {/* TAPHOAMMO: nhập token và fetch trong cùng card */}
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={kioskToken}
+                    onChange={(e) => setKioskToken(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    placeholder="Nhập mã kiosk token để tự động tải dữ liệu sản phẩm"
+                  />
+                  <LoadingButton
+                    type="button"
+                    loading={isLoading}
+                    loadingText="Đang lấy..."
+                    onClick={() =>
+                      withLoading(
+                        fetchFromSupplier,
+                        "Đang lấy dữ liệu từ TAPHOAMMO..."
+                      )
+                    }
+                    className="px-4"
+                  >
+                    Lấy từ TAPHOAMMO
+                  </LoadingButton>
+                </div>
+              </div>
+            </div>
+
+            <OptionsEditor
+              value={formData.options}
+              onChange={(opts) => handleInputChange("options", opts)}
+            />
+          </div>
           {/* Pricing & Inventory */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Giá cả & Kho hàng
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -227,14 +365,20 @@ function CreateProduct() {
                   min="0"
                   step="1000"
                   value={formData.price}
-                  onChange={(e) => handleInputChange("price", parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange("price", parseInt(e.target.value) || 0)
+                  }
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    errors.price
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
                   }`}
                   placeholder="0"
                 />
                 {errors.price && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.price}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.price}
+                  </p>
                 )}
               </div>
 
@@ -244,7 +388,9 @@ function CreateProduct() {
                 </label>
                 <select
                   value={formData.currency}
-                  onChange={(e) => handleInputChange("currency", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("currency", e.target.value)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 >
                   <option value="VND">VND</option>
@@ -260,15 +406,93 @@ function CreateProduct() {
                   type="number"
                   min="0"
                   value={formData.stock}
-                  onChange={(e) => handleInputChange("stock", parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange("stock", parseInt(e.target.value) || 0)
+                  }
                   className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.stock ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    errors.stock
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
                   }`}
                   placeholder="0"
                 />
                 {errors.stock && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.stock}</p>
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.stock}
+                  </p>
                 )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Giá gốc (TAPHOAMMO)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.supplier?.basePrice || 0}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      supplier: {
+                        provider: prev.supplier?.provider || "taphoammo",
+                        kioskToken: prev.supplier?.kioskToken,
+                        basePrice: parseInt(e.target.value) || 0,
+                        markupPercent: prev.supplier?.markupPercent || 0,
+                        lastStock: prev.supplier?.lastStock,
+                        lastSyncedAt: prev.supplier?.lastSyncedAt,
+                      },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  % lợi nhuận
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.supplier?.markupPercent || 0}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      supplier: {
+                        provider: prev.supplier?.provider || "taphoammo",
+                        kioskToken: prev.supplier?.kioskToken,
+                        basePrice: prev.supplier?.basePrice || 0,
+                        markupPercent: parseInt(e.target.value) || 0,
+                        lastStock: prev.supplier?.lastStock,
+                        lastSyncedAt: prev.supplier?.lastSyncedAt,
+                      },
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  placeholder="0"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Gợi ý: Giá bán = Giá gốc × (1 + % lợi nhuận)
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Giá bán gợi ý (tự tính)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={(() => {
+                    const base = formData.supplier?.basePrice || 0;
+                    const mk = formData.supplier?.markupPercent || 0;
+                    return base ? Math.round(base * (1 + mk / 100)) : 0;
+                  })()}
+                  readOnly
+                  className="w-full px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                />
               </div>
             </div>
           </div>
@@ -278,7 +502,7 @@ function CreateProduct() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Cài đặt
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -302,7 +526,9 @@ function CreateProduct() {
                 <input
                   type="text"
                   value={formData.imageUrl}
-                  onChange={(e) => handleInputChange("imageUrl", e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("imageUrl", e.target.value)
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   placeholder="/thumbs/product.svg"
                 />
@@ -314,7 +540,9 @@ function CreateProduct() {
                 <input
                   type="checkbox"
                   checked={formData.isActive}
-                  onChange={(e) => handleInputChange("isActive", e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange("isActive", e.target.checked)
+                  }
                   className="rounded border-gray-300 dark:border-gray-700 text-amber-600 focus:ring-amber-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">

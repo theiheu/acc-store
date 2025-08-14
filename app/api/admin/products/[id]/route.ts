@@ -10,15 +10,15 @@ import { dataStore } from "@/src/core/data-store";
 // GET /api/admin/products/[id] - Get single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");
   if (authError) return authError;
 
   try {
-    const productId = params.id;
-    const product = dataStore.getProduct(productId);
+    const { id } = await context.params;
+    const product = dataStore.getProduct(id);
 
     if (!product) {
       return NextResponse.json(
@@ -49,7 +49,7 @@ export async function GET(
 // PUT /api/admin/products/[id] - Update product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");
@@ -64,7 +64,7 @@ export async function PUT(
       );
     }
 
-    const productId = params.id;
+    const { id: productId } = await context.params;
     const updateData = await request.json();
 
     const oldProduct = dataStore.getProduct(productId);
@@ -140,7 +140,7 @@ export async function PUT(
 // DELETE /api/admin/products/[id] - Delete product
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");
@@ -155,7 +155,7 @@ export async function DELETE(
       );
     }
 
-    const productId = params.id;
+    const { id: productId } = await context.params;
     const product = dataStore.getProduct(productId);
 
     if (!product) {
@@ -213,7 +213,7 @@ export async function DELETE(
 // PATCH /api/admin/products/[id] - Update specific fields (like stock)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");

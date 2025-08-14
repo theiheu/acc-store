@@ -27,6 +27,17 @@ export interface UserTopUpRequest {
   adminNote?: string;
 }
 
+// Supplier integration types
+export interface SupplierInfo {
+  provider: "taphoammo" | "manual";
+  kioskToken?: string; // Upstream product identifier (for taphoammo)
+  basePrice?: number; // Giá gốc từ nhà cung cấp
+  markupPercent?: number; // % lợi nhuận áp dụng trên basePrice
+  lastStock?: number; // Số lượng tồn kho mới nhất từ upstream
+  lastSyncedAt?: Date;
+  autoSync?: boolean;
+}
+
 // Product management types
 export interface AdminProduct extends Product {
   stock: number;
@@ -36,6 +47,7 @@ export interface AdminProduct extends Product {
   updatedAt: Date;
   createdBy: string; // Admin ID
   lastModifiedBy: string; // Admin ID
+  supplier?: SupplierInfo; // Thông tin nhà cung cấp (tùy chọn)
 }
 
 export interface ProductInventory {
@@ -71,7 +83,7 @@ export interface Order {
   status: "pending" | "completed" | "cancelled" | "refunded";
   paymentMethod?: string;
   paymentId?: string;
-  selectedOptions?: Record<string, string>; // Product option selections
+  selectedOptionId?: string; // Selected product option ID
   deliveryInfo?: string; // Account details delivered to user
   createdAt: Date;
   updatedAt: Date;

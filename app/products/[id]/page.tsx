@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
-import { getProductById } from "@/src/core/products";
+import { getProductById, type ProductOption } from "@/src/core/products";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { withUtmQuery } from "@/src/utils/utm";
 import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
@@ -23,10 +23,9 @@ export default function ProductDetailPage() {
   const { hideLoading, showLoading } = useGlobalLoading();
   const [isLoading, setIsLoading] = useState(true);
   const [qty, setQty] = useState(1);
-  const [selectedOptions, setSelectedOptions] = useState<
-    Record<string, string>
-  >({});
-  const [priceModifier, setPriceModifier] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<ProductOption | null>(
+    null
+  );
   const { show } = useToastContext();
 
   const fmt = useMemo(
@@ -38,6 +37,14 @@ export default function ProductDetailPage() {
       }),
     [product?.currency]
   );
+
+  // Calculate current price based on selected option
+  const currentPrice = useMemo(() => {
+    if (selectedOption) {
+      return selectedOption.price;
+    }
+    return product?.price || 0;
+  }, [selectedOption, product?.price]);
 
   useEffect(() => {
     // Hide any global loading from navigation
@@ -117,14 +124,17 @@ export default function ProductDetailPage() {
 
             <div className="space-y-1">
               <div className="text-3xl font-bold tabular-nums">
-                {fmt.format(product.price + priceModifier)}
+                {fmt.format(currentPrice)}
               </div>
-              {priceModifier !== 0 && (
+              {selectedOption && (
                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Giá gốc: {fmt.format(product.price)}
-                  {priceModifier > 0 && (
-                    <span className="text-green-600 dark:text-green-400 ml-2">
-                      (+{fmt.format(priceModifier)})
+                  {selectedOption.stock > 0 ? (
+                    <span className="text-green-600 dark:text-green-400">
+                      Còn {selectedOption.stock} sản phẩm
+                    </span>
+                  ) : (
+                    <span className="text-red-600 dark:text-red-400">
+                      Hết hàng
                     </span>
                   )}
                 </div>
@@ -137,9 +147,8 @@ export default function ProductDetailPage() {
                 <h3 className="text-lg font-semibold">Tùy chọn sản phẩm</h3>
                 <ProductOptions
                   options={product.options}
-                  onSelectionChange={(selections, totalModifier) => {
-                    setSelectedOptions(selections);
-                    setPriceModifier(totalModifier);
+                  onSelectionChange={(option) => {
+                    setSelectedOption(option);
                   }}
                 />
               </div>
@@ -173,24 +182,63 @@ export default function ProductDetailPage() {
               </button>
             </div>
             <div className="flex gap-2 pt-2">
-              <Link
-                href={{
-                  pathname: "/deposit",
-                  query: {
-                    utm_source: "product-detail",
-                    utm_medium: "cta",
-                    utm_campaign: product.id,
-                    utm_content: "detail-primary",
-                  },
-                }}
-                onClick={() => {
-                  showLoading("Đang chuyển đến nạp tiền...");
-                  show("Đã chuyển sang trang nạp tiền");
+              <button
+                onClick={async () => {
+                  try {
+                    // Check if option is selected and has stock
+                    if (product.options && product.options.length > 0) {
+                      if (!selectedOption) {
+                        show("Vui lòng chọn loại sản phẩm");
+                        return;
+                      }
+                      if (selectedOption.stock === 0) {
+                        show("Sản phẩm đã hết hàng");
+                        return;
+                      }
+                      if (selectedOption.stock < qty) {
+                        show(`Chỉ còn ${selectedOption.stock} sản phẩm`);
+                        return;
+                      }
+                    }
+
+                    showLoading("Đang xử lý đơn hàng...");
+                    const res = await fetch("/api/orders", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        productId: product.id,
+                        quantity: qty,
+                        selectedOptionId: selectedOption?.id,
+                        price: currentPrice,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (!data.success) {
+                      show(data.error || "Không thể tạo đơn hàng");
+                      return;
+                    }
+                    if (data.data?.credentials) {
+                      show(
+                        "Mua hàng thành công. Thông tin tài khoản đã sẵn sàng."
+                      );
+                      // Optionally render credentials; for now just alert count
+                      alert(
+                        `Nhận được ${data.data.credentials.length} tài khoản.`
+                      );
+                    } else {
+                      show(
+                        "Đơn hàng đang được xử lý. Vui lòng kiểm tra lịch sử đơn hàng."
+                      );
+                    }
+                  } catch (e) {
+                    console.error(e);
+                    show("Có lỗi xảy ra khi tạo đơn hàng");
+                  }
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90"
               >
-                Nạp tiền ngay
-              </Link>
+                Mua ngay
+              </button>
               <Link
                 href={{
                   pathname: "/deposit",
@@ -207,7 +255,7 @@ export default function ProductDetailPage() {
                 }}
                 className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
               >
-                Xem thêm
+                Nạp thêm
               </Link>
             </div>
 

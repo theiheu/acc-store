@@ -10,15 +10,15 @@ export const CATEGORIES: {
   { id: "productivity", label: "Tài khoản Productivity", icon: "⚙️" },
 ];
 
+// Optimized option structure with direct price and stock
 export type ProductOption = {
   id: string;
   label: string;
-  values: Array<{
-    id: string;
-    label: string;
-    priceModifier?: number; // thêm/trừ giá gốc
-    description?: string;
-  }>;
+  price: number; // Giá bán thực tế của option này
+  stock: number; // Số lượng tồn kho của option này
+  description?: string; // Mô tả bổ sung
+  basePrice?: number; // Giá gốc để tính lợi nhuận
+  profitMargin?: number; // % lợi nhuận
 };
 
 export type Product = {
@@ -236,23 +236,25 @@ export function searchProducts(query: string): Product[] {
 
 export function calculateProductPrice(
   product: Product,
-  selectedOptions?: Record<string, string>
+  selectedOptionId?: string
 ): number {
-  let totalPrice = product.price;
+  // If no options, return base product price
+  if (!product.options || product.options.length === 0) {
+    return product.price;
+  }
 
-  if (selectedOptions && product.options) {
-    for (const option of product.options) {
-      const selectedValueId = selectedOptions[option.id];
-      if (selectedValueId) {
-        const selectedValue = option.values.find(
-          (v) => v.id === selectedValueId
-        );
-        if (selectedValue?.priceModifier) {
-          totalPrice += selectedValue.priceModifier;
-        }
-      }
+  // If options exist, find the selected option and return its price
+  if (selectedOptionId) {
+    const selectedOption = product.options.find(
+      (opt) => opt.id === selectedOptionId
+    );
+    if (selectedOption) {
+      return selectedOption.price;
     }
   }
 
-  return totalPrice;
+  // Fallback to first available option price or base price
+  const firstOption =
+    product.options.find((opt) => opt.stock > 0) || product.options[0];
+  return firstOption ? firstOption.price : product.price;
 }
