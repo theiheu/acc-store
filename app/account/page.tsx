@@ -28,6 +28,7 @@ export default function AccountPage() {
   const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
 
   useEffect(() => {
+    console.log("AccountPage: currentUser", currentUser);
     if (status === "loading") return;
     if (!session?.user) {
       router.replace("/login?next=/account");
