@@ -224,6 +224,9 @@ class DataStore {
 
   // Initialize with real homepage products only
   private initializeData() {
+    // Load existing users from file first
+    this.loadUsersFromFile();
+
     // Initialize products from the real homepage product catalog
     products.forEach((product: Product) => {
       const adminProduct: AdminProduct = {
@@ -954,6 +957,35 @@ class DataStore {
 
   getAllOrders() {
     return Array.from(this.orders.values());
+  }
+
+  // Load users from file
+  private loadUsersFromFile(): void {
+    try {
+      if (typeof window !== "undefined") return; // Only on server
+
+      const fs = require("fs");
+      const path = require("path");
+      const usersPath = path.join(process.cwd(), ".data", "users.json");
+
+      if (fs.existsSync(usersPath)) {
+        const data = fs.readFileSync(usersPath, "utf8");
+        const users = JSON.parse(data);
+
+        users.forEach((user: any) => {
+          this.users.set(user.id, {
+            ...user,
+            createdAt: new Date(user.createdAt),
+            updatedAt: new Date(user.updatedAt),
+            lastLoginAt: user.lastLoginAt
+              ? new Date(user.lastLoginAt)
+              : undefined,
+          });
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load users from file:", error);
+    }
   }
 }
 

@@ -112,11 +112,12 @@ export function DataSyncProvider({
       userEmail?: string;
     }) => {
       // Update users array optimistically
-      setUsers((prev) =>
-        prev.map((u) =>
+      setUsers((prev) => {
+        const updated = prev.map((u) =>
           u.id === data.userId ? { ...u, balance: data.newBalance } : u
-        )
-      );
+        );
+        return updated;
+      });
 
       // Update current user by id or email match
       const matchesById = currentUser && currentUser.id === data.userId;
@@ -124,12 +125,13 @@ export function DataSyncProvider({
         !matchesById && currentUserEmail && data.userEmail === currentUserEmail;
 
       if (matchesById || matchesByEmail) {
-        setCurrentUser((prev) =>
-          prev ? { ...prev, balance: data.newBalance } : prev
-        );
+        setCurrentUser((prev) => {
+          const updated = prev ? { ...prev, balance: data.newBalance } : prev;
+          return updated;
+        });
       }
 
-      setTransactions(dataStore.getTransactions()); // refresh transactions list
+      setTransactions(dataStore.getTransactions());
       setLastUpdate(new Date());
     },
     onProductUpdated: async (data) => {
@@ -207,6 +209,58 @@ export function DataSyncProvider({
   // Define refreshData function before useEffect
   const refreshData = useCallback(async () => {
     setUsers(dataStore.getUsers());
+
+    if (currentUserEmail) {
+      let user = dataStore.getPublicUser(currentUserEmail);
+
+      if (!user) {
+        const response = await fetch("/api/auth/session");
+        const session = await response.json();
+
+        if (session?.user) {
+          // Try load user from API first
+          try {
+            const userResponse = await fetch(
+              `/api/users/${session.user.email}`
+            );
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              if (userData.success && userData.user) {
+                // Create user with API data
+                const newUser = dataStore.createUser({
+                  ...userData.user,
+                  registrationSource: "reload-recovery",
+                });
+                user = dataStore.getPublicUser(currentUserEmail);
+                return;
+              }
+            }
+          } catch (error) {
+            // Fallback to creating new user
+          }
+
+          // Fallback: create new user with balance = 0
+          const newUser = dataStore.createUser({
+            email: session.user.email,
+            name: session.user.name || session.user.email.split("@")[0],
+            role: "user",
+            status: "active",
+            balance: 0, // Will be updated from SSE
+            totalOrders: 0,
+            totalSpent: 0,
+            registrationSource: "reload-recovery",
+          });
+          user = dataStore.getPublicUser(currentUserEmail);
+        }
+      }
+
+      setCurrentUser(user);
+    }
+
+    // Update users array after potential user creation
+    const finalUsers = dataStore.getUsers();
+    setUsers(finalUsers);
+
     setProducts(dataStore.getProducts());
 
     // Set immediate fallback from dataStore first
@@ -220,13 +274,11 @@ export function DataSyncProvider({
       if (result.success) {
         setPublicProducts(result.data);
       } else {
-        console.error("Failed to fetch public products:", result.error);
         // Fallback to direct dataStore call
         const fallbackProducts = dataStore.getPublicProducts();
         setPublicProducts(fallbackProducts);
       }
     } catch (error) {
-      console.error("Error fetching public products:", error);
       // Fallback to direct dataStore call
       const fallbackProducts = dataStore.getPublicProducts();
       setPublicProducts(fallbackProducts);
@@ -269,12 +321,12 @@ export function DataSyncProvider({
   // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
     if (!currentUserEmail) {
-      // No user logged in - this is normal for public pages
       setCurrentUser(null);
       return;
     }
 
     const fromUsers = users.find((u) => u.email === currentUserEmail);
+
     if (fromUsers) {
       const publicUser: User = {
         id: fromUsers.id,
