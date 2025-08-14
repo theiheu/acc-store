@@ -111,8 +111,6 @@ export function DataSyncProvider({
       newBalance: number;
       userEmail?: string;
     }) => {
-      console.log("Balance updated event received:", data);
-
       // Update users array optimistically
       setUsers((prev) =>
         prev.map((u) =>
@@ -270,7 +268,11 @@ export function DataSyncProvider({
 
   // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
-    if (!currentUserEmail) return;
+    if (!currentUserEmail) {
+      // No user logged in - this is normal for public pages
+      setCurrentUser(null);
+      return;
+    }
 
     const fromUsers = users.find((u) => u.email === currentUserEmail);
     if (fromUsers) {
@@ -287,7 +289,8 @@ export function DataSyncProvider({
       };
       setCurrentUser(publicUser);
     } else {
-      setCurrentUser(dataStore.getPublicUser(currentUserEmail));
+      const dataStoreUser = dataStore.getPublicUser(currentUserEmail);
+      setCurrentUser(dataStoreUser);
     }
   }, [currentUserEmail, users]);
 
@@ -318,23 +321,13 @@ export function DataSyncProvider({
 
         case "PRODUCT_CREATED":
         case "PRODUCT_UPDATED":
-          console.log(
-            "DataSyncProvider: Received product event",
-            event.type,
-            event.payload
-          );
           setProducts(dataStore.getProducts());
           // Refresh public products from API
           fetch("/api/products")
             .then((res) => res.json())
             .then((result) => {
-              console.log("DataSyncProvider: API response", result);
               if (result.success) {
                 setPublicProducts(result.data);
-                console.log(
-                  "DataSyncProvider: Updated public products",
-                  result.data.length
-                );
               } else {
                 setPublicProducts(dataStore.getPublicProducts());
               }
@@ -445,9 +438,13 @@ export function useDataSync() {
 // Hook for current user data with real-time updates
 export function useCurrentUser() {
   const { currentUser } = useDataSync();
-  console.log(`🚀 | currentUser:`, currentUser);
-
   return currentUser;
+}
+
+// Hook to check if user is authenticated
+export function useIsAuthenticated() {
+  const currentUser = useCurrentUser();
+  return currentUser !== null;
 }
 
 // Hook for products with real-time updates

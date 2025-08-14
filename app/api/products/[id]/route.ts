@@ -8,20 +8,9 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    console.log("Fetching product with ID:", id);
 
     // Get product from dataStore (includes both static and dynamic products)
     const adminProduct = dataStore.getProduct(id);
-    console.log(
-      "Found product:",
-      adminProduct
-        ? {
-            id: adminProduct.id,
-            title: adminProduct.title,
-            isActive: adminProduct.isActive,
-          }
-        : null
-    );
 
     if (!adminProduct) {
       return NextResponse.json(

@@ -151,6 +151,7 @@ export default function AuthButton() {
                   <p className="mt-0.5 text-2xl font-bold text-amber-900 dark:text-amber-100">
                     {currentUser ? formatCurrency(currentUser.balance) : "0 ₫"}
                   </p>
+
                   {currentUser && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Cập nhật:{" "}
