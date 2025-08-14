@@ -272,7 +272,8 @@ export function DataSyncProvider({
   };
 
   const getUserByEmail = (email: string): AdminUser | null => {
-    return dataStore.getUserByEmail(email);
+    const fromState = users.find((u) => u.email === email) || null;
+    return fromState || dataStore.getUserByEmail(email);
   };
 
   const getProductById = (id: string): AdminProduct | null => {

@@ -31,6 +31,7 @@ export default function DepositPage() {
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [showQR, setShowQR] = useState(false);
   const [transferContent, setTransferContent] = useState("");
+  const [userNote, setUserNote] = useState("");
   const [errors, setErrors] = useState<{ amount?: string }>({});
   const [topupRefreshTrigger, setTopupRefreshTrigger] = useState(0);
 
@@ -136,7 +137,7 @@ export default function DepositPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             amount: numericAmount,
-            notes: "",
+            notes: userNote,
             qrCodeData: qrData,
             transferContent,
             bankInfo: BANK_CONFIG,
@@ -228,6 +229,21 @@ export default function DepositPage() {
                     {errors.amount}
                   </p>
                 )}
+
+                {/* User Note */}
+                <div className="my-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Ghi chú (tuỳ chọn)
+                  </label>
+                  <textarea
+                    value={userNote}
+                    onChange={(e) => setUserNote(e.target.value)}
+                    rows={3}
+                    maxLength={240}
+                    placeholder="Ví dụ: Nạp gấp, vui lòng xác nhận sớm..."
+                    className="w-full h-[40px] px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 dark:bg-gray-800 dark:text-gray-100 text-sm"
+                  />
+                </div>
               </div>
 
               {/* Amount Presets */}

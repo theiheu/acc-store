@@ -357,12 +357,42 @@ function TopupRequestItem({
   const { getUserByEmail } = useDataSync();
 
   function BalanceBadge({ email }: { email: string }) {
-    const user = getUserByEmail(email);
-    if (!user) return null;
+    const [balance, setBalance] = useState<number | null>(null);
+
+    useEffect(() => {
+      const u = getUserByEmail(email);
+      if (u) {
+        setBalance(u.balance);
+        return;
+      }
+      // Fallback: call admin users API to fetch by email if not in client state yet
+      const ctrl = new AbortController();
+      async function fetchUser() {
+        try {
+          const res = await fetch(
+            `/api/admin/users?search=${encodeURIComponent(email)}&limit=1`,
+            { signal: ctrl.signal }
+          );
+          const data = await res.json();
+          if (
+            data?.success &&
+            Array.isArray(data.data) &&
+            data.data.length > 0
+          ) {
+            setBalance(data.data[0].balance);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      fetchUser();
+      return () => ctrl.abort();
+    }, [email]);
+
+    if (balance == null) return null;
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-300/10 border border-amber-200 dark:border-amber-300/20 text-amber-700 dark:text-amber-300 text-xs font-semibold">
-        <span>💰</span>
-        {formatCurrency(user.balance)}
+        {formatCurrency(balance)}
       </span>
     );
   }
