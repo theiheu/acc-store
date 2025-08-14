@@ -65,7 +65,7 @@ export interface BulkProductOperation {
   productIds: string[];
   data?: {
     price?: number;
-    priceModifier?: number; // Percentage change
+    priceChangePercent?: number; // Percentage change for bulk price updates
     stock?: number;
     stockModifier?: number; // Add/subtract from current stock
     isActive?: boolean;

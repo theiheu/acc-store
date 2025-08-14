@@ -294,7 +294,7 @@ export default function AccountPage() {
 
               <button
                 onClick={() => setShowTopupModal(true)}
-                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-300/10 hover:border-amber-300 dark:hover:border-amber-300/30 transition-all w-full text-left"
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-amber-50 dark:hover:bg-amber-300/10 hover:border-amber-300 dark:hover:border-amber-300/30 transition-all w-full text-left cursor-pointer"
               >
                 <span className="text-xl">💰</span>
                 <div>

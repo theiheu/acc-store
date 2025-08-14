@@ -16,7 +16,7 @@ function UserDetail() {
   const userId = params.id as string;
   const { withLoading } = useGlobalLoading();
   const { show } = useToastContext();
-  
+
   const [user, setUser] = useState<AdminUser | null>(null);
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +60,9 @@ function UserDetail() {
         limit: "20",
       });
 
-      const response = await fetch(`/api/admin/users/${userId}/topup?${params}`);
+      const response = await fetch(
+        `/api/admin/users/${userId}/topup?${params}`
+      );
       const result = await response.json();
 
       if (result.success) {
@@ -77,12 +79,18 @@ function UserDetail() {
     }
   }
 
-  async function handleStatusChange(newStatus: "active" | "suspended" | "banned") {
+  async function handleStatusChange(
+    newStatus: "active" | "suspended" | "banned"
+  ) {
     if (!user) return;
 
-    const statusText = newStatus === "active" ? "kích hoạt" : 
-                     newStatus === "suspended" ? "tạm khóa" : "cấm vĩnh viễn";
-    
+    const statusText =
+      newStatus === "active"
+        ? "kích hoạt"
+        : newStatus === "suspended"
+        ? "tạm khóa"
+        : "cấm vĩnh viễn";
+
     if (!confirm(`Bạn có chắc chắn muốn ${statusText} tài khoản này?`)) {
       return;
     }
@@ -97,7 +105,7 @@ function UserDetail() {
 
         const result = await response.json();
         if (result.success) {
-          setUser(prev => prev ? { ...prev, status: newStatus } : null);
+          setUser((prev) => (prev ? { ...prev, status: newStatus } : null));
           show(`Tài khoản đã được ${statusText}`);
         } else {
           show("Không thể cập nhật trạng thái tài khoản");
@@ -111,7 +119,10 @@ function UserDetail() {
 
   if (loading) {
     return (
-      <AdminLayout title="Chi tiết người dùng" description="Thông tin chi tiết và lịch sử giao dịch">
+      <AdminLayout
+        title="Chi tiết người dùng"
+        description="Thông tin chi tiết và lịch sử giao dịch"
+      >
         <div className="flex items-center justify-center h-64">
           <LoadingSpinner size="lg" />
         </div>
@@ -121,7 +132,10 @@ function UserDetail() {
 
   if (!user) {
     return (
-      <AdminLayout title="Chi tiết người dùng" description="Thông tin chi tiết và lịch sử giao dịch">
+      <AdminLayout
+        title="Chi tiết người dùng"
+        description="Thông tin chi tiết và lịch sử giao dịch"
+      >
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400">
             Không tìm thấy người dùng
@@ -132,8 +146,8 @@ function UserDetail() {
   }
 
   return (
-    <AdminLayout 
-      title={`${user.name || user.email}`} 
+    <AdminLayout
+      title={`${user.name || user.email}`}
       description="Thông tin chi tiết và lịch sử giao dịch"
     >
       <div className="space-y-6">
@@ -143,7 +157,8 @@ function UserDetail() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-amber-100 dark:bg-amber-300/10 rounded-full flex items-center justify-center">
                 <span className="text-xl font-medium text-amber-800 dark:text-amber-200">
-                  {user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+                  {user.name?.charAt(0).toUpperCase() ||
+                    user.email.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
@@ -152,21 +167,28 @@ function UserDetail() {
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    user.status === "active"
-                      ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-300"
+                  <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      user.status === "active"
+                        ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-300"
+                        : user.status === "suspended"
+                        ? "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-300"
+                        : "bg-red-100 dark:bg-red-300/10 text-red-800 dark:text-red-300"
+                    }`}
+                  >
+                    {user.status === "active"
+                      ? "Hoạt động"
                       : user.status === "suspended"
-                      ? "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-300"
-                      : "bg-red-100 dark:bg-red-300/10 text-red-800 dark:text-red-300"
-                  }`}>
-                    {user.status === "active" ? "Hoạt động" : 
-                     user.status === "suspended" ? "Tạm khóa" : "Cấm"}
+                      ? "Tạm khóa"
+                      : "Cấm"}
                   </span>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    user.role === "admin"
-                      ? "bg-purple-100 dark:bg-purple-300/10 text-purple-800 dark:text-purple-300"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                  }`}>
+                  <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      user.role === "admin"
+                        ? "bg-purple-100 dark:bg-purple-300/10 text-purple-800 dark:text-purple-300"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                    }`}
+                  >
                     {user.role === "admin" ? "Quản trị" : "Người dùng"}
                   </span>
                 </div>
@@ -178,23 +200,23 @@ function UserDetail() {
               {user.status === "active" ? (
                 <button
                   onClick={() => handleStatusChange("suspended")}
-                  className="px-3 py-2 text-sm bg-yellow-100 dark:bg-yellow-300/10 text-yellow-700 dark:text-yellow-300 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-300/20 transition-colors"
+                  className="px-3 py-2 text-sm bg-yellow-100 dark:bg-yellow-300/10 text-yellow-700 dark:text-yellow-300 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-300/20 transition-colors cursor-pointer"
                 >
                   Tạm khóa
                 </button>
               ) : (
                 <button
                   onClick={() => handleStatusChange("active")}
-                  className="px-3 py-2 text-sm bg-green-100 dark:bg-green-300/10 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-300/20 transition-colors"
+                  className="px-3 py-2 text-sm bg-green-100 dark:bg-green-300/10 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-300/20 transition-colors cursor-pointer"
                 >
                   Kích hoạt
                 </button>
               )}
-              
+
               {user.status !== "banned" && (
                 <button
                   onClick={() => handleStatusChange("banned")}
-                  className="px-3 py-2 text-sm bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-300/20 transition-colors"
+                  className="px-3 py-2 text-sm bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-300/20 transition-colors cursor-pointer"
                 >
                   Cấm vĩnh viễn
                 </button>
@@ -208,28 +230,36 @@ function UserDetail() {
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatCurrency(user.balance)}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Số dư hiện tại</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Số dư hiện tại
+              </p>
             </div>
-            
+
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {user.totalOrders}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Tổng đơn hàng</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Tổng đơn hàng
+              </p>
             </div>
-            
+
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {formatCurrency(user.totalSpent)}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Tổng chi tiêu</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Tổng chi tiêu
+              </p>
             </div>
-            
+
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {new Date(user.createdAt).toLocaleDateString("vi-VN")}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Ngày đăng ký</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Ngày đăng ký
+              </p>
             </div>
           </div>
         </div>
@@ -253,13 +283,18 @@ function UserDetail() {
           ) : (
             <div className="space-y-3">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div
+                  key={transaction.id}
+                  className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      transaction.type === "credit"
-                        ? "bg-green-100 dark:bg-green-300/10"
-                        : "bg-red-100 dark:bg-red-300/10"
-                    }`}>
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        transaction.type === "credit"
+                          ? "bg-green-100 dark:bg-green-300/10"
+                          : "bg-red-100 dark:bg-red-300/10"
+                      }`}
+                    >
                       <span className="text-lg">
                         {transaction.type === "credit" ? "💰" : "💸"}
                       </span>
@@ -269,23 +304,31 @@ function UserDetail() {
                         {transaction.description}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(transaction.createdAt).toLocaleString("vi-VN")}
+                        {new Date(transaction.createdAt).toLocaleString(
+                          "vi-VN"
+                        )}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`font-medium ${
-                      transaction.type === "credit"
-                        ? "text-green-600 dark:text-green-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}>
+                    <p
+                      className={`font-medium ${
+                        transaction.type === "credit"
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
                       {transaction.type === "credit" ? "+" : ""}
                       {formatCurrency(transaction.amount)}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {transaction.type === "credit" ? "Nạp tiền" : 
-                       transaction.type === "debit" ? "Trừ tiền" :
-                       transaction.type === "purchase" ? "Mua hàng" : "Hoàn tiền"}
+                      {transaction.type === "credit"
+                        ? "Nạp tiền"
+                        : transaction.type === "debit"
+                        ? "Trừ tiền"
+                        : transaction.type === "purchase"
+                        ? "Mua hàng"
+                        : "Hoàn tiền"}
                     </p>
                   </div>
                 </div>
@@ -301,16 +344,20 @@ function UserDetail() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Trước
                 </button>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Sau
                 </button>

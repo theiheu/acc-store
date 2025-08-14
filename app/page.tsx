@@ -8,12 +8,12 @@ import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
 import HomePageSkeleton from "@/src/components/HomePageSkeleton";
 import CategorySidebar from "@/src/components/CategorySidebar";
 import { type CategoryId, type Product } from "@/src/core/products";
-import { useProducts } from "@/src/components/DataSyncProvider";
+import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const products = useProducts(); // Get real-time products
+  const { products, isLoading } = useProductsWithLoading(); // Get real-time products with loading state
   const [category, setCategory] = useState<CategoryId>("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -179,7 +179,7 @@ export default function Home() {
                           <button
                             key={k}
                             onClick={() => setQ(k)}
-                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                           >
                             🔎 {k}
                           </button>
@@ -191,24 +191,11 @@ export default function Home() {
             </div>
 
             {/* Product grid */}
-            {isFiltering || isSearching ? (
+            {isFiltering || isSearching || isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-8 text-center text-sm text-gray-600 dark:text-gray-400">
-                Không có sản phẩm phù hợp.
-                <button
-                  onClick={() => {
-                    setQ("");
-                    setCategory("all");
-                  }}
-                  className="ml-2 underline"
-                >
-                  Xóa lọc
-                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">

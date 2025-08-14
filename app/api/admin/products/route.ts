@@ -130,26 +130,66 @@ export async function POST(request: NextRequest) {
     if (
       !productData.title ||
       !productData.description ||
-      !productData.price ||
       !productData.category
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Title, description, price, and category are required",
+          error: "Title, description, and category are required",
         },
         { status: 400 }
       );
     }
 
-    if (productData.price <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Price must be greater than 0",
-        },
-        { status: 400 }
-      );
+    const hasOptions =
+      productData.options &&
+      Array.isArray(productData.options) &&
+      productData.options.length > 0;
+
+    if (!hasOptions) {
+      // When no options, require main product price
+      if (!productData.price || productData.price <= 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Price must be greater than 0 when no options are provided",
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate options if provided
+    if (productData.options && Array.isArray(productData.options)) {
+      for (const option of productData.options) {
+        if (!option.label || !option.label.trim()) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "All options must have a label",
+            },
+            { status: 400 }
+          );
+        }
+        if (typeof option.price !== "number" || option.price <= 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "All options must have a price greater than 0",
+            },
+            { status: 400 }
+          );
+        }
+        if (typeof option.stock !== "number" || option.stock < 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "All options must have stock >= 0",
+            },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     // Check if product with same title already exists
@@ -169,29 +209,40 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new product using data store with admin info for activity logging
+    const productToCreate = {
+      title: productData.title,
+      description: productData.description,
+      price: productData.price,
+      currency: productData.currency || "VND",
+      imageEmoji: productData.imageEmoji,
+      imageUrl: productData.imageUrl,
+      badge: productData.badge,
+      longDescription: productData.longDescription,
+      faqs: productData.faqs || [],
+      category: productData.category,
+      options: productData.options || [],
+      stock: productData.stock || 0,
+      sold: 0,
+      isActive: productData.isActive === true,
+      createdBy: admin.id,
+      lastModifiedBy: admin.id,
+      supplier: productData.supplier,
+    };
+
+    console.log(
+      "API Create Product: Creating product with data",
+      productToCreate
+    );
     const newProduct = dataStore.createProduct(
-      {
-        title: productData.title,
-        description: productData.description,
-        price: productData.price,
-        currency: productData.currency || "VND",
-        imageEmoji: productData.imageEmoji,
-        imageUrl: productData.imageUrl,
-        badge: productData.badge,
-        longDescription: productData.longDescription,
-        faqs: productData.faqs || [],
-        category: productData.category,
-        options: productData.options || [],
-        stock: productData.stock || 0,
-        sold: 0,
-        isActive: productData.isActive !== false,
-        createdBy: admin.id,
-        lastModifiedBy: admin.id,
-        supplier: productData.supplier,
-      },
+      productToCreate,
       admin.id,
       admin.name
     );
+    console.log("API Create Product: Created product", {
+      id: newProduct.id,
+      title: newProduct.title,
+      isActive: newProduct.isActive,
+    });
 
     // Log admin action
     await logAdminAction(

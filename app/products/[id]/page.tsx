@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
-import { getProductById, type ProductOption } from "@/src/core/products";
+import { type Product, type ProductOption } from "@/src/core/products";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { withUtmQuery } from "@/src/utils/utm";
 import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
@@ -17,11 +17,13 @@ export default function ProductDetailPage() {
   const id = Array.isArray(params?.id)
     ? params?.id[0]
     : (params?.id as string | undefined);
-  const product = getProductById(id);
 
   // Always call ALL hooks at the top in the same order
   const { hideLoading, showLoading } = useGlobalLoading();
+  const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [qty, setQty] = useState(1);
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(
     null
@@ -49,20 +51,52 @@ export default function ProductDetailPage() {
   useEffect(() => {
     // Hide any global loading from navigation
     hideLoading();
-    // Show skeleton for a brief moment
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [hideLoading]);
+
+    // Fetch product from API
+    const fetchProduct = async () => {
+      if (!id) {
+        console.log("No product ID provided");
+        setIsLoading(false);
+        setFetchError(true);
+        return;
+      }
+
+      try {
+        console.log("Fetching product with ID:", id);
+        const response = await fetch(`/api/products/${id}`);
+        console.log("API response status:", response.status);
+        const result = await response.json();
+        console.log("API response data:", result);
+
+        if (result.success) {
+          setProduct(result.data);
+          setFetchError(false);
+        } else {
+          console.error("Failed to fetch product:", result.error);
+          setProduct(null);
+          setFetchError(true);
+        }
+      } catch (error) {
+        console.error("Error fetching product:", error);
+        setProduct(null);
+        setFetchError(true);
+      } finally {
+        // Show skeleton for a brief moment
+        setTimeout(() => setIsLoading(false), 500);
+      }
+    };
+
+    fetchProduct();
+  }, [id, hideLoading]);
 
   // Handle early returns after all hooks are called
-  if (!product) {
-    notFound();
-  }
-
   if (isLoading) {
     return <ProductDetailSkeleton />;
+  }
+
+  // Only call notFound() after loading is complete and product is still null
+  if (!product || fetchError) {
+    notFound();
   }
 
   // Breadcrumbs
@@ -94,14 +128,21 @@ export default function ProductDetailPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col">
-            {hasThumb ? (
-              <div className="relative aspect-[16/9] md:aspect-[4/3] lg:aspect-[3/2]">
+            {hasThumb && !imageError ? (
+              <div className="relative aspect-[16/9] md:aspect-[4/3] lg:aspect-[3/2] h-full">
                 <Image
                   src={product.imageUrl!}
                   alt={product.title}
                   fill
                   sizes="(min-width: 1280px) 50vw, (min-width: 768px) 60vw, 100vw"
-                  className="object-cover"
+                  className="object-contain"
+                  onError={() => {
+                    console.warn(
+                      "Product detail image failed to load:",
+                      product.imageUrl
+                    );
+                    setImageError(true);
+                  }}
                 />
               </div>
             ) : (
@@ -114,7 +155,7 @@ export default function ProductDetailPage() {
           <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             {/* CTAs (mua ngay, dùng mã) stay in upper half */}
             <div>
-              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-semibold tracking-tight">
+              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-semibold tracking-tight text-amber-700">
                 {product.title}
               </h1>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -126,9 +167,11 @@ export default function ProductDetailPage() {
               <div className="text-3xl font-bold tabular-nums">
                 {fmt.format(currentPrice)}
               </div>
-              {selectedOption && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {selectedOption.stock > 0 ? (
+              {/* Stock display - options-first approach */}
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {selectedOption ? (
+                  // Show stock from selected option
+                  selectedOption.stock > 0 ? (
                     <span className="text-green-600 dark:text-green-400">
                       Còn {selectedOption.stock} sản phẩm
                     </span>
@@ -136,15 +179,28 @@ export default function ProductDetailPage() {
                     <span className="text-red-600 dark:text-red-400">
                       Hết hàng
                     </span>
-                  )}
-                </div>
-              )}
+                  )
+                ) : product.options && product.options.length > 0 ? (
+                  // Product has options but none selected yet
+                  <span className="text-gray-500">
+                    Chọn loại sản phẩm để xem tồn kho
+                  </span>
+                ) : // Product without options - show main stock
+                product.stock && product.stock > 0 ? (
+                  <span className="text-green-600 dark:text-green-400">
+                    Còn {product.stock} sản phẩm
+                  </span>
+                ) : (
+                  <span className="text-red-600 dark:text-red-400">
+                    Hết hàng
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Product Options */}
             {product.options && product.options.length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Tùy chọn sản phẩm</h3>
                 <ProductOptions
                   options={product.options}
                   onSelectionChange={(option) => {
@@ -185,8 +241,9 @@ export default function ProductDetailPage() {
               <button
                 onClick={async () => {
                   try {
-                    // Check if option is selected and has stock
+                    // Check stock based on product structure
                     if (product.options && product.options.length > 0) {
+                      // Product with options - check selected option
                       if (!selectedOption) {
                         show("Vui lòng chọn loại sản phẩm");
                         return;
@@ -197,6 +254,16 @@ export default function ProductDetailPage() {
                       }
                       if (selectedOption.stock < qty) {
                         show(`Chỉ còn ${selectedOption.stock} sản phẩm`);
+                        return;
+                      }
+                    } else {
+                      // Product without options - check main product stock
+                      if (product.stock === 0) {
+                        show("Sản phẩm đã hết hàng");
+                        return;
+                      }
+                      if (product.stock && product.stock < qty) {
+                        show(`Chỉ còn ${product.stock} sản phẩm`);
                         return;
                       }
                     }
@@ -235,7 +302,7 @@ export default function ProductDetailPage() {
                     show("Có lỗi xảy ra khi tạo đơn hàng");
                   }
                 }}
-                className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90"
+                className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 cursor-pointer"
               >
                 Mua ngay
               </button>

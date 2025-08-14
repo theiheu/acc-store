@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useState,
   ReactNode,
@@ -51,6 +52,7 @@ interface DataSyncContextType {
   // Real-time updates
   lastUpdate: Date;
   refreshData: () => void;
+  isInitialLoading: boolean;
 }
 
 const DataSyncContext = createContext<DataSyncContextType | null>(null);
@@ -71,6 +73,7 @@ export function DataSyncProvider({
   const [topupRequests, setTopupRequests] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   // Set up real-time updates
   const { isConnected } = useRealtimeUpdates({
@@ -131,14 +134,40 @@ export function DataSyncProvider({
       setTransactions(dataStore.getTransactions()); // refresh transactions list
       setLastUpdate(new Date());
     },
-    onProductUpdated: (data) => {
+    onProductUpdated: async (data) => {
       setProducts(dataStore.getProducts());
-      setPublicProducts(dataStore.getPublicProducts());
+
+      // Refresh public products from API
+      try {
+        const response = await fetch("/api/products");
+        const result = await response.json();
+        if (result.success) {
+          setPublicProducts(result.data);
+        } else {
+          setPublicProducts(dataStore.getPublicProducts());
+        }
+      } catch (error) {
+        setPublicProducts(dataStore.getPublicProducts());
+      }
+
       setLastUpdate(new Date());
     },
-    onProductDeleted: (data) => {
+    onProductDeleted: async (data) => {
       setProducts(dataStore.getProducts());
-      setPublicProducts(dataStore.getPublicProducts());
+
+      // Refresh public products from API
+      try {
+        const response = await fetch("/api/products");
+        const result = await response.json();
+        if (result.success) {
+          setPublicProducts(result.data);
+        } else {
+          setPublicProducts(dataStore.getPublicProducts());
+        }
+      } catch (error) {
+        setPublicProducts(dataStore.getPublicProducts());
+      }
+
       setLastUpdate(new Date());
     },
     onTransactionCreated: (data) => {
@@ -177,10 +206,67 @@ export function DataSyncProvider({
     },
   });
 
+  // Define refreshData function before useEffect
+  const refreshData = useCallback(async () => {
+    setUsers(dataStore.getUsers());
+    setProducts(dataStore.getProducts());
+
+    // Set immediate fallback from dataStore first
+    const immediateProducts = dataStore.getPublicProducts();
+    setPublicProducts(immediateProducts);
+
+    // Then fetch public products from API endpoint
+    try {
+      const response = await fetch("/api/products");
+      const result = await response.json();
+      if (result.success) {
+        setPublicProducts(result.data);
+      } else {
+        console.error("Failed to fetch public products:", result.error);
+        // Fallback to direct dataStore call
+        const fallbackProducts = dataStore.getPublicProducts();
+        setPublicProducts(fallbackProducts);
+      }
+    } catch (error) {
+      console.error("Error fetching public products:", error);
+      // Fallback to direct dataStore call
+      const fallbackProducts = dataStore.getPublicProducts();
+      setPublicProducts(fallbackProducts);
+    }
+
+    setTransactions(dataStore.getTransactions());
+    setLastUpdate(new Date());
+
+    if (currentUserEmail) {
+      setCurrentUser(dataStore.getPublicUser(currentUserEmail));
+    }
+
+    // Mark initial loading as complete
+    setIsInitialLoading(false);
+  }, [currentUserEmail]);
+
   // Initialize data
   useEffect(() => {
-    refreshData();
-  }, []);
+    // Ensure dataStore has products loaded
+    dataStore.ensureProductsLoaded();
+
+    // Check if dataStore has products immediately
+    const immediateProducts = dataStore.getPublicProducts();
+
+    if (immediateProducts.length > 0) {
+      setPublicProducts(immediateProducts);
+    }
+
+    const initializeData = async () => {
+      try {
+        await refreshData();
+      } catch (error) {
+        console.error("DataSyncProvider: Failed to load initial data", error);
+        setIsInitialLoading(false); // Ensure loading state is cleared even on error
+      }
+    };
+    initializeData();
+  }, [refreshData]);
 
   // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
@@ -232,13 +318,48 @@ export function DataSyncProvider({
 
         case "PRODUCT_CREATED":
         case "PRODUCT_UPDATED":
+          console.log(
+            "DataSyncProvider: Received product event",
+            event.type,
+            event.payload
+          );
           setProducts(dataStore.getProducts());
-          setPublicProducts(dataStore.getPublicProducts());
+          // Refresh public products from API
+          fetch("/api/products")
+            .then((res) => res.json())
+            .then((result) => {
+              console.log("DataSyncProvider: API response", result);
+              if (result.success) {
+                setPublicProducts(result.data);
+                console.log(
+                  "DataSyncProvider: Updated public products",
+                  result.data.length
+                );
+              } else {
+                setPublicProducts(dataStore.getPublicProducts());
+              }
+            })
+            .catch((error) => {
+              console.error("DataSyncProvider: API error", error);
+              setPublicProducts(dataStore.getPublicProducts());
+            });
           break;
 
         case "PRODUCT_DELETED":
           setProducts(dataStore.getProducts());
-          setPublicProducts(dataStore.getPublicProducts());
+          // Refresh public products from API
+          fetch("/api/products")
+            .then((res) => res.json())
+            .then((result) => {
+              if (result.success) {
+                setPublicProducts(result.data);
+              } else {
+                setPublicProducts(dataStore.getPublicProducts());
+              }
+            })
+            .catch(() => {
+              setPublicProducts(dataStore.getPublicProducts());
+            });
           break;
 
         case "TRANSACTION_CREATED":
@@ -254,18 +375,6 @@ export function DataSyncProvider({
 
     return unsubscribe;
   }, [currentUserEmail, currentUser]);
-
-  const refreshData = () => {
-    setUsers(dataStore.getUsers());
-    setProducts(dataStore.getProducts());
-    setPublicProducts(dataStore.getPublicProducts());
-    setTransactions(dataStore.getTransactions());
-    setLastUpdate(new Date());
-
-    if (currentUserEmail) {
-      setCurrentUser(dataStore.getPublicUser(currentUserEmail));
-    }
-  };
 
   const getUserById = (id: string): AdminUser | null => {
     return dataStore.getUser(id);
@@ -315,6 +424,7 @@ export function DataSyncProvider({
     stats,
     lastUpdate,
     refreshData,
+    isInitialLoading,
   };
 
   return (
@@ -344,6 +454,15 @@ export function useCurrentUser() {
 export function useProducts() {
   const { publicProducts } = useDataSync();
   return publicProducts;
+}
+
+// Hook for products with loading state
+export function useProductsWithLoading() {
+  const { publicProducts, isInitialLoading } = useDataSync();
+  return {
+    products: publicProducts,
+    isLoading: isInitialLoading,
+  };
 }
 
 // Hook for user balance with real-time updates

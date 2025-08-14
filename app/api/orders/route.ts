@@ -31,7 +31,6 @@ export async function POST(request: NextRequest) {
       quantity = 1,
       promotion,
       selectedOptionId,
-      price,
     } = await request.json();
     if (!productId || quantity <= 0) {
       return NextResponse.json(
@@ -50,14 +49,16 @@ export async function POST(request: NextRequest) {
 
     // Validate selected option if product has options
     let selectedOption = null;
-    if (product.options && product.options.length > 0) {
+    const hasOptions = product.options && product.options.length > 0;
+
+    if (hasOptions) {
       if (!selectedOptionId) {
         return NextResponse.json(
           { success: false, error: "Vui lòng chọn loại sản phẩm" },
           { status: 400 }
         );
       }
-      selectedOption = product.options.find(
+      selectedOption = product.options!.find(
         (opt) => opt.id === selectedOptionId
       );
       if (!selectedOption) {
@@ -78,12 +79,32 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    } else {
+      // For products without options, check main product stock
+      if (product.stock === 0) {
+        return NextResponse.json(
+          { success: false, error: "Sản phẩm đã hết hàng" },
+          { status: 400 }
+        );
+      }
+      if (product.stock && product.stock < quantity) {
+        return NextResponse.json(
+          { success: false, error: `Chỉ còn ${product.stock} sản phẩm` },
+          { status: 400 }
+        );
+      }
     }
 
-    // Use option price if available, otherwise use provided price or product price
-    const unitPrice = selectedOption
-      ? selectedOption.price
-      : price || product.price;
+    // Use option price if available, otherwise use product price
+    const unitPrice = selectedOption ? selectedOption.price : product.price;
+
+    if (!unitPrice || unitPrice <= 0) {
+      return NextResponse.json(
+        { success: false, error: "Giá sản phẩm không hợp lệ" },
+        { status: 400 }
+      );
+    }
+
     const totalAmount = unitPrice * quantity;
 
     // Check balance (simple wallet-based)
@@ -127,9 +148,18 @@ export async function POST(request: NextRequest) {
       metadata: { productId, quantity },
     });
 
-    // Call supplier
+    // Call supplier using kioskToken from selected option
+    const kioskToken =
+      selectedOption?.kioskToken || product.supplier?.kioskToken;
+    if (!kioskToken) {
+      return NextResponse.json(
+        { success: false, error: "Không tìm thấy token API để mua sản phẩm" },
+        { status: 400 }
+      );
+    }
+
     const supplier = new TapHoaMMOClient({
-      userToken: product.supplier?.kioskToken ? undefined : undefined,
+      userToken: kioskToken,
     });
 
     const buyResp = await supplier.buyProducts(quantity, promotion);
@@ -200,23 +230,28 @@ export async function POST(request: NextRequest) {
       deliveryInfo,
     });
 
-    // Update product sold counter and option stock
+    // Update product sold counter and stock
     const currentProduct = dataStore.getProduct(productId);
     if (currentProduct) {
       let updatedOptions = currentProduct.options;
+      let updatedStock = currentProduct.stock;
 
-      // Update option stock if an option was selected
-      if (selectedOptionId && updatedOptions) {
+      if (hasOptions && selectedOptionId && updatedOptions) {
+        // Update option stock if an option was selected
         updatedOptions = updatedOptions.map((opt) =>
           opt.id === selectedOptionId
             ? { ...opt, stock: Math.max(0, opt.stock - quantity) }
             : opt
         );
+      } else if (!hasOptions && currentProduct.stock !== undefined) {
+        // Update main product stock if no options
+        updatedStock = Math.max(0, currentProduct.stock - quantity);
       }
 
       dataStore.updateProduct(productId, {
         sold: (currentProduct.sold || 0) + quantity,
         options: updatedOptions,
+        stock: updatedStock,
       });
     }
 

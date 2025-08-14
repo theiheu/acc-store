@@ -1,12 +1,28 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Product } from "@/src/core/products";
+import { calculateProductPrice } from "@/src/core/products";
 import { useGlobalLoading } from "./GlobalLoadingProvider";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { showLoading } = useGlobalLoading();
+  const [imageError, setImageError] = useState(false);
+
+  // Calculate display price using options-first logic
+  const displayPrice = useMemo(() => calculateProductPrice(product), [product]);
+
+  // Calculate price range for products with options
+  const priceRange = useMemo(() => {
+    if (product.options && product.options.length > 0) {
+      const prices = product.options.map((opt) => opt.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      return { min: minPrice, max: maxPrice, hasRange: minPrice !== maxPrice };
+    }
+    return { min: displayPrice, max: displayPrice, hasRange: false };
+  }, [product.options, displayPrice]);
 
   const fmt = useMemo(
     () =>
@@ -21,13 +37,17 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group w-full max-w-[22rem] sm:max-w-none rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden transition-transform duration-200 hover:shadow-md hover:-translate-y-0.5">
       <div className="relative aspect-[16/9] md:aspect-[4/3] xl:aspect-[5/4] overflow-hidden">
-        {product.imageUrl ? (
+        {product.imageUrl && !imageError ? (
           <Image
             src={product.imageUrl}
             alt={product.title}
             fill
             sizes="(min-width: 1536px) 20vw, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => {
+              console.warn("Image failed to load:", product.imageUrl);
+              setImageError(true);
+            }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-300/20 dark:to-amber-300/10 flex items-center justify-center">
@@ -50,7 +70,11 @@ export default function ProductCard({ product }: { product: Product }) {
       {/* Price directly under image */}
       <div className="px-4 lg:px-5">
         <div className="text-lg lg:text-xl font-semibold tabular-nums flex justify-end items-center gap-2">
-          <span>{fmt.format(product.price)}</span>
+          <span>
+            {priceRange.hasRange
+              ? `${fmt.format(priceRange.min)} - ${fmt.format(priceRange.max)}`
+              : fmt.format(displayPrice)}
+          </span>
         </div>
       </div>
 

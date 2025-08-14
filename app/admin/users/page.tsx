@@ -55,7 +55,10 @@ function UserManagement() {
     }
   }
 
-  async function handleStatusChange(userId: string, newStatus: "active" | "suspended" | "banned") {
+  async function handleStatusChange(
+    userId: string,
+    newStatus: "active" | "suspended" | "banned"
+  ) {
     try {
       await withLoading(async () => {
         const response = await fetch(`/api/admin/users/${userId}`, {
@@ -66,12 +69,8 @@ function UserManagement() {
 
         const result = await response.json();
         if (result.success) {
-          setUsers(prev => 
-            prev.map(u => 
-              u.id === userId 
-                ? { ...u, status: newStatus }
-                : u
-            )
+          setUsers((prev) =>
+            prev.map((u) => (u.id === userId ? { ...u, status: newStatus } : u))
           );
           show(`Trạng thái người dùng đã được cập nhật`);
         } else {
@@ -90,8 +89,8 @@ function UserManagement() {
   }
 
   return (
-    <AdminLayout 
-      title="Quản lý người dùng" 
+    <AdminLayout
+      title="Quản lý người dùng"
       description="Quản lý tài khoản người dùng, số dư và giao dịch"
     >
       <div className="space-y-6">
@@ -177,12 +176,16 @@ function UserManagement() {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <tr
+                      key={user.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-10 h-10 bg-amber-100 dark:bg-amber-300/10 rounded-full flex items-center justify-center mr-3">
                             <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                              {user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
+                              {user.name?.charAt(0).toUpperCase() ||
+                                user.email.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
@@ -196,11 +199,13 @@ function UserManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          user.role === "admin"
-                            ? "bg-purple-100 dark:bg-purple-300/10 text-purple-800 dark:text-purple-300"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
-                        }`}>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            user.role === "admin"
+                              ? "bg-purple-100 dark:bg-purple-300/10 text-purple-800 dark:text-purple-300"
+                              : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+                          }`}
+                        >
                           {user.role === "admin" ? "Quản trị" : "Người dùng"}
                         </span>
                       </td>
@@ -216,15 +221,20 @@ function UserManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          user.status === "active"
-                            ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-300"
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            user.status === "active"
+                              ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-300"
+                              : user.status === "suspended"
+                              ? "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-300"
+                              : "bg-red-100 dark:bg-red-300/10 text-red-800 dark:text-red-300"
+                          }`}
+                        >
+                          {user.status === "active"
+                            ? "Hoạt động"
                             : user.status === "suspended"
-                            ? "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-300"
-                            : "bg-red-100 dark:bg-red-300/10 text-red-800 dark:text-red-300"
-                        }`}>
-                          {user.status === "active" ? "Hoạt động" : 
-                           user.status === "suspended" ? "Tạm khóa" : "Cấm"}
+                            ? "Tạm khóa"
+                            : "Cấm"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -234,27 +244,31 @@ function UserManagement() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => openTopUpModal(user)}
-                            className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300"
+                            className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 cursor-pointer"
                           >
                             Nạp tiền
                           </button>
                           <Link
                             href={`/admin/users/${user.id}`}
-                            className="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300"
+                            className="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 cursor-pointer"
                           >
                             Chi tiết
                           </Link>
                           {user.status === "active" ? (
                             <button
-                              onClick={() => handleStatusChange(user.id, "suspended")}
-                              className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300"
+                              onClick={() =>
+                                handleStatusChange(user.id, "suspended")
+                              }
+                              className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-300 cursor-pointer"
                             >
                               Khóa
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleStatusChange(user.id, "active")}
-                              className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300"
+                              onClick={() =>
+                                handleStatusChange(user.id, "active")
+                              }
+                              className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 cursor-pointer"
                             >
                               Mở khóa
                             </button>
@@ -277,14 +291,16 @@ function UserManagement() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Trước
               </button>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -304,11 +320,9 @@ function UserManagement() {
             setSelectedUser(null);
           }}
           onSuccess={(newBalance) => {
-            setUsers(prev => 
-              prev.map(u => 
-                u.id === selectedUser.id 
-                  ? { ...u, balance: newBalance }
-                  : u
+            setUsers((prev) =>
+              prev.map((u) =>
+                u.id === selectedUser.id ? { ...u, balance: newBalance } : u
               )
             );
             setShowTopUpModal(false);
@@ -336,7 +350,7 @@ function TopUpModal({ user, onClose, onSuccess }: TopUpModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
+
     const amountNum = parseInt(amount);
     if (!amountNum || amountNum <= 0) {
       show("Vui lòng nhập số tiền hợp lệ");
@@ -362,7 +376,9 @@ function TopUpModal({ user, onClose, onSuccess }: TopUpModalProps) {
 
       const result = await response.json();
       if (result.success) {
-        show(`Đã nạp ${amountNum.toLocaleString('vi-VN')} VND cho ${user.email}`);
+        show(
+          `Đã nạp ${amountNum.toLocaleString("vi-VN")} VND cho ${user.email}`
+        );
         onSuccess(result.data.user.balance);
       } else {
         show(result.error || "Không thể nạp tiền");
@@ -382,10 +398,11 @@ function TopUpModal({ user, onClose, onSuccess }: TopUpModalProps) {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Nạp tiền cho {user.name || user.email}
         </h3>
-        
+
         <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Số dư hiện tại: <span className="font-medium">{formatCurrency(user.balance)}</span>
+            Số dư hiện tại:{" "}
+            <span className="font-medium">{formatCurrency(user.balance)}</span>
           </p>
         </div>
 
@@ -426,7 +443,7 @@ function TopUpModal({ user, onClose, onSuccess }: TopUpModalProps) {
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
               placeholder="Ghi chú nội bộ..."
             />
           </div>
@@ -435,14 +452,14 @@ function TopUpModal({ user, onClose, onSuccess }: TopUpModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? "Đang nạp..." : "Nạp tiền"}
             </button>

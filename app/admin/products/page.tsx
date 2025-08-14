@@ -16,15 +16,47 @@ function ProductManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [showActiveOnly, setShowActiveOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const { withLoading } = useGlobalLoading();
   const { show } = useToastContext();
 
+  // Helper functions for options-first display
+  function getDisplayPrice(product: AdminProduct): number {
+    if (product.options && product.options.length > 0) {
+      // Return price range from options
+      const prices = product.options.map((opt) => opt.price);
+      return Math.min(...prices); // Show starting price
+    }
+    return product.price || 0;
+  }
+
+  function getPriceRange(product: AdminProduct): string {
+    if (product.options && product.options.length > 0) {
+      const prices = product.options.map((opt) => opt.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      if (minPrice === maxPrice) {
+        return formatCurrency(minPrice);
+      }
+      return `${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
+    }
+    return formatCurrency(product.price || 0);
+  }
+
+  function getTotalStock(product: AdminProduct): number {
+    if (product.options && product.options.length > 0) {
+      return product.options.reduce(
+        (total, opt) => total + (opt.stock || 0),
+        0
+      );
+    }
+    return product.stock || 0;
+  }
+
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, searchTerm, selectedCategory, showActiveOnly]);
+  }, [currentPage, searchTerm, selectedCategory]);
 
   async function fetchProducts() {
     try {
@@ -34,7 +66,6 @@ function ProductManagement() {
         limit: "10",
         search: searchTerm,
         category: selectedCategory,
-        isActive: showActiveOnly ? "true" : "",
       });
 
       const response = await fetch(`/api/admin/products?${params}`);
@@ -140,19 +171,6 @@ function ProductManagement() {
                 </option>
               ))}
             </select>
-
-            {/* Active Filter */}
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showActiveOnly}
-                onChange={(e) => setShowActiveOnly(e.target.checked)}
-                className="rounded border-gray-300 dark:border-gray-700 text-amber-600 focus:ring-amber-500"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Chỉ hiển thị đang bán
-              </span>
-            </label>
           </div>
 
           <Link
@@ -185,7 +203,7 @@ function ProductManagement() {
                 show("Có lỗi xảy ra khi đồng bộ sản phẩm");
               }
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg"
+            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg cursor-pointer"
           >
             🔄 Đồng bộ sản phẩm
           </button>
@@ -260,19 +278,31 @@ function ProductManagement() {
                             ?.label || product.category}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {formatCurrency(product.price)}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-gray-100">
+                          {getPriceRange(product)}
+                        </div>
+                        {product.options && product.options.length > 0 && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {product.options.length} tùy chọn
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`text-sm font-medium ${
-                            (product.stock || 0) < 20
+                            getTotalStock(product) < 20
                               ? "text-red-600 dark:text-red-400"
                               : "text-gray-900 dark:text-gray-100"
                           }`}
                         >
-                          {product.stock || 0}
+                          {getTotalStock(product)}
                         </span>
+                        {product.options && product.options.length > 0 && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Tổng từ options
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                         {product.sold || 0}
@@ -302,8 +332,8 @@ function ProductManagement() {
                             }
                             className={`${
                               product.isActive
-                                ? "text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                                : "text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300"
+                                ? "text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 cursor-pointer"
+                                : "text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 cursor-pointer"
                             }`}
                           >
                             {product.isActive ? "Tạm dừng" : "Kích hoạt"}
@@ -312,7 +342,7 @@ function ProductManagement() {
                             onClick={() =>
                               handleDeleteProduct(product.id, product.title)
                             }
-                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 cursor-pointer"
                           >
                             Xóa
                           </button>
@@ -336,7 +366,7 @@ function ProductManagement() {
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Trước
               </button>
@@ -345,7 +375,7 @@ function ProductManagement() {
                   setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                 }
                 disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Sau
               </button>

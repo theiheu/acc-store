@@ -145,7 +145,7 @@ function AdminTopupRequestsPageInner() {
 
           <button
             onClick={fetchRequests}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 cursor-pointer"
           >
             <svg
               className="w-4 h-4"
@@ -300,8 +300,8 @@ function AdminTopupRequestsPageInner() {
                 onClick={() => setFilter(tab.key as any)}
                 className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer ${
                   filter === tab.key
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-300/20 dark:text-blue-300"
-                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-300/20 dark:text-blue-300 cursor-pointer"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 cursor-pointer"
                 }`}
               >
                 {tab.label} ({tab.count})
@@ -583,7 +583,7 @@ function TopupRequestItem({
           <>
             <button
               onClick={closeRejectModal}
-              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded"
+              className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded cursor-pointer"
             >
               Hủy
             </button>

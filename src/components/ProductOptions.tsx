@@ -34,22 +34,12 @@ export default function ProductOptions({
   }
 
   const formatOptionLabel = (option: ProductOption) => {
-    const priceText = new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-      currencyDisplay: "narrowSymbol",
-    }).format(option.price);
-
-    let label = `${option.label} - ${priceText}`;
+    let label = `${option.label}`;
 
     if (option.stock === 0) {
       label += " (Hết hàng)";
     } else if (option.stock <= 5) {
       label += ` (Còn ${option.stock})`;
-    }
-
-    if (option.description) {
-      label += ` - ${option.description}`;
     }
 
     return label;

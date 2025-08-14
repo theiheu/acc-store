@@ -245,6 +245,13 @@ class DataStore {
     // No initial activities - they will be logged through real admin actions
   }
 
+  // Public method to ensure products are loaded (for client-side initialization)
+  ensureProductsLoaded(): void {
+    if (this.products.size === 0) {
+      this.initializeData();
+    }
+  }
+
   // User operations
   getUsers(): AdminUser[] {
     return Array.from(this.users.values());
@@ -827,30 +834,31 @@ class DataStore {
 
   // Utility methods for public site integration
   getPublicProducts(): Product[] {
-    return Array.from(this.products.values())
-      .filter((product) => product.isActive)
-      .map((product) => ({
-        id: product.id,
-        title: product.title,
-        description: product.description,
-        price: product.price,
-        currency: product.currency,
-        imageEmoji: product.imageEmoji,
-        imageUrl: product.imageUrl,
-        badge: product.badge,
-        longDescription: product.longDescription,
-        faqs: product.faqs,
-        category: product.category,
-        options: product.options,
-        // Include admin fields for compatibility
-        stock: product.stock,
-        sold: product.sold,
-        isActive: product.isActive,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-        createdBy: product.createdBy,
-        lastModifiedBy: product.lastModifiedBy,
-      }));
+    const allProducts = Array.from(this.products.values());
+    const activeProducts = allProducts.filter((product) => product.isActive);
+
+    return activeProducts.map((product) => ({
+      id: product.id,
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      currency: product.currency,
+      imageEmoji: product.imageEmoji,
+      imageUrl: product.imageUrl,
+      badge: product.badge,
+      longDescription: product.longDescription,
+      faqs: product.faqs,
+      category: product.category,
+      options: product.options,
+      // Include admin fields for compatibility
+      stock: product.stock,
+      sold: product.sold,
+      isActive: product.isActive,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+      createdBy: product.createdBy,
+      lastModifiedBy: product.lastModifiedBy,
+    }));
   }
 
   getPublicUser(email: string): User | null {

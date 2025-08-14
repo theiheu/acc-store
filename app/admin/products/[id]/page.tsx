@@ -16,13 +16,13 @@ interface ProductFormData {
   title: string;
   description: string;
   longDescription: string;
-  price: number;
+  price?: number; // Optional - only used when no options
   currency: string;
   category: string;
   imageEmoji: string;
   imageUrl: string;
   badge: string;
-  stock: number;
+  stock?: number; // Optional - only used when no options
   isActive: boolean;
   options?: ProductOption[];
   supplier?: SupplierInfo;
@@ -42,13 +42,13 @@ function EditProduct() {
     title: "",
     description: "",
     longDescription: "",
-    price: 0,
+    price: undefined, // Start as undefined
     currency: "VND",
     category: "gaming",
     imageEmoji: "📦",
     imageUrl: "",
     badge: "",
-    stock: 0,
+    stock: undefined, // Start as undefined
     isActive: true,
   });
 
@@ -108,16 +108,31 @@ function EditProduct() {
       newErrors.description = "Mô tả ngắn là bắt buộc";
     }
 
-    if (formData.price <= 0) {
-      newErrors.price = "Giá phải lớn hơn 0";
-    }
-
     if (!formData.category) {
       newErrors.category = "Danh mục là bắt buộc";
     }
 
-    if (formData.stock < 0) {
-      newErrors.stock = "Số lượng kho không thể âm";
+    const hasOptions = formData.options && formData.options.length > 0;
+
+    if (hasOptions) {
+      // When options exist, validate options instead of main product price/stock
+      const hasInvalidOption = formData.options!.some(
+        (option) =>
+          !option.label.trim() || option.price <= 0 || option.stock < 0
+      );
+      if (hasInvalidOption) {
+        newErrors.options = "Tất cả tùy chọn phải có tên, giá > 0 và kho >= 0";
+      }
+    } else {
+      // When no options, require main product price and stock
+      if (!formData.price || formData.price <= 0) {
+        newErrors.price = "Giá phải lớn hơn 0 (hoặc thêm tùy chọn sản phẩm)";
+      }
+
+      if (formData.stock === undefined || formData.stock < 0) {
+        newErrors.stock =
+          "Số lượng kho không thể âm (hoặc thêm tùy chọn sản phẩm)";
+      }
     }
 
     setErrors(newErrors);
@@ -247,7 +262,7 @@ function EditProduct() {
           <div className="flex gap-2">
             <button
               onClick={syncStock}
-              className="rounded-md border px-3 py-1.5 text-sm"
+              className="rounded-md border px-3 py-1.5 text-sm cursor-pointer"
             >
               Đồng bộ kho
             </button>
@@ -286,34 +301,53 @@ function EditProduct() {
                 </p>
               )}
             </div>
-            <div>
-              <label className="block text-sm font-medium">Giá bán</label>
-              <input
-                type="number"
-                value={formData.price}
-                onChange={(e) =>
-                  handleInputChange("price", Number(e.target.value))
-                }
-                className="mt-1 w-full border rounded-md px-3 py-2"
-              />
-              {errors.price && (
-                <p className="text-sm text-red-600 mt-1">{errors.price}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium">Số lượng kho</label>
-              <input
-                type="number"
-                value={formData.stock}
-                onChange={(e) =>
-                  handleInputChange("stock", Number(e.target.value))
-                }
-                className="mt-1 w-full border rounded-md px-3 py-2"
-              />
-              {errors.stock && (
-                <p className="text-sm text-red-600 mt-1">{errors.stock}</p>
-              )}
-            </div>
+            {/* Conditional Price & Stock - only when no options */}
+            {(!formData.options || formData.options.length === 0) && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Giá bán (VND) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.price || ""}
+                    onChange={(e) =>
+                      handleInputChange("price", Number(e.target.value) || 0)
+                    }
+                    className="mt-1 w-full border rounded-md px-3 py-2"
+                    placeholder="0"
+                  />
+                  {errors.price && (
+                    <p className="text-sm text-red-600 mt-1">{errors.price}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Chỉ cần thiết khi sản phẩm không có tùy chọn (options)
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">
+                    Số lượng kho *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.stock || ""}
+                    onChange={(e) =>
+                      handleInputChange("stock", Number(e.target.value) || 0)
+                    }
+                    className="mt-1 w-full border rounded-md px-3 py-2"
+                    placeholder="0"
+                  />
+                  {errors.stock && (
+                    <p className="text-sm text-red-600 mt-1">{errors.stock}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Chỉ cần thiết khi sản phẩm không có tùy chọn (options)
+                  </p>
+                </div>
+              </>
+            )}
 
             {/* Options Editor */}
             <div>
@@ -325,6 +359,9 @@ function EditProduct() {
                   value={formData.options}
                   onChange={(opts) => handleInputChange("options", opts)}
                 />
+                {errors.options && (
+                  <p className="text-sm text-red-600 mt-1">{errors.options}</p>
+                )}
               </div>
             </div>
           </div>

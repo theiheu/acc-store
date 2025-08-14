@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ProductOption } from "@/src/core/products";
 
 interface OptionsEditorProps {
@@ -12,10 +12,14 @@ interface OptionsEditorProps {
 interface ExtendedOption extends ProductOption {
   basePrice?: number;
   profitMargin?: number;
+  kioskToken?: string;
 }
 
 export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
   const [local, setLocal] = useState<ExtendedOption[]>([]);
+  const [editingTokenId, setEditingTokenId] = useState<string | null>(null);
+  const [tempTokenValue, setTempTokenValue] = useState<string>("");
+  const tokenInputRef = useRef<HTMLInputElement>(null);
 
   // Sync local state when value prop changes (e.g., from TAPHOAMMO fetch)
   useEffect(() => {
@@ -30,8 +34,30 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
     }
   }, [value]);
 
+  // Handle click outside to save token edit
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        editingTokenId &&
+        tokenInputRef.current &&
+        !tokenInputRef.current.contains(event.target as Node)
+      ) {
+        // Check if click is on the save button
+        const target = event.target as HTMLElement;
+        if (!target.closest("[data-token-save-button]")) {
+          saveTokenEdit(editingTokenId);
+        }
+      }
+    };
+
+    if (editingTokenId) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [editingTokenId]);
+
   function commit(next: ExtendedOption[]) {
-    console.log("Committing options:", next);
     setLocal(next);
     // Convert back to ProductOption format for parent, but keep basePrice and profitMargin
     const productOptions: ProductOption[] = next.map((opt) => ({
@@ -39,11 +65,10 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
       label: opt.label,
       price: opt.price,
       stock: opt.stock,
-      description: opt.description,
+      kioskToken: opt.kioskToken,
       basePrice: opt.basePrice,
       profitMargin: opt.profitMargin,
     }));
-    console.log("Sending to parent:", productOptions);
     onChange(productOptions);
   }
 
@@ -53,10 +78,10 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
       ...local,
       {
         id,
-        label: "Tùy chọn mới",
+        label: "",
         price: 0,
         stock: 0,
-        description: "",
+        kioskToken: "",
         basePrice: 0,
         profitMargin: 0,
       },
@@ -136,6 +161,42 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
     return new Intl.NumberFormat("vi-VN").format(price);
   };
 
+  // Token editing functions
+  const maskToken = (token: string) => {
+    if (!token || token.length <= 8) return token;
+    return token.substring(0, 8) + "...";
+  };
+
+  const startEditingToken = (optionId: string, currentToken: string) => {
+    setEditingTokenId(optionId);
+    setTempTokenValue(currentToken || "");
+    // Focus input after state update
+    setTimeout(() => {
+      tokenInputRef.current?.focus();
+    }, 0);
+  };
+
+  const saveTokenEdit = (optionId: string) => {
+    updateOption(optionId, "kioskToken", tempTokenValue);
+    setEditingTokenId(null);
+    setTempTokenValue("");
+  };
+
+  const cancelTokenEdit = () => {
+    setEditingTokenId(null);
+    setTempTokenValue("");
+  };
+
+  const handleTokenKeyDown = (e: React.KeyboardEvent, optionId: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveTokenEdit(optionId);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelTokenEdit();
+    }
+  };
+
   // Quick profit margin presets
   const applyProfitMarginToAll = (margin: number) => {
     commit(
@@ -175,7 +236,7 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
       {local.map((option) => (
         <div
           key={option.id}
-          className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900"
+          className="rounded-lg border border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900 shadow-sm"
         >
           {/* Tên tùy chọn */}
           <div className="mb-4">
@@ -201,15 +262,9 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 placeholder="0"
                 value={option.basePrice ?? ""}
-                onChange={(e) => {
-                  console.log(
-                    "Base price change:",
-                    e.target.value,
-                    "for option:",
-                    option.id
-                  );
-                  updateOption(option.id, "basePrice", e.target.value);
-                }}
+                onChange={(e) =>
+                  updateOption(option.id, "basePrice", e.target.value)
+                }
               />
             </div>
 
@@ -225,26 +280,20 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   placeholder="0"
                   value={option.profitMargin ?? ""}
-                  onChange={(e) => {
-                    console.log(
-                      "Profit margin change:",
-                      e.target.value,
-                      "for option:",
-                      option.id
-                    );
-                    updateOption(option.id, "profitMargin", e.target.value);
-                  }}
+                  onChange={(e) =>
+                    updateOption(option.id, "profitMargin", e.target.value)
+                  }
                 />
                 {/* Quick margin buttons */}
-                <div className="flex flex-wrap gap-1">
-                  {[10, 15, 20, 25, 30].map((margin) => (
+                <div className="grid grid-cols-4 gap-2">
+                  {[5, 10, 25, 35, 50, 75, 90, 100].map((margin) => (
                     <button
                       key={margin}
                       type="button"
                       onClick={() =>
                         updateOption(option.id, "profitMargin", margin)
                       }
-                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                      className={`px-2 py-1 rounded text-xs transition-colors cursor-pointer ${
                         option.profitMargin === margin
                           ? "bg-amber-500 text-white"
                           : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-800"
@@ -255,18 +304,6 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
                   ))}
                 </div>
               </div>
-              {option.basePrice &&
-                option.basePrice > 0 &&
-                option.profitMargin &&
-                option.profitMargin > 0 && (
-                  <p className="mt-1 text-xs text-green-600 dark:text-green-400">
-                    Lãi: +
-                    {formatPrice(
-                      (option.basePrice * option.profitMargin) / 100
-                    )}{" "}
-                    đ
-                  </p>
-                )}
             </div>
 
             <div>
@@ -278,38 +315,22 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
                 className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 placeholder="0"
                 value={option.price ?? ""}
-                onChange={(e) => {
-                  console.log(
-                    "Price change:",
-                    e.target.value,
-                    "for option:",
-                    option.id
-                  );
-                  updateOption(option.id, "price", e.target.value);
-                }}
+                onChange={(e) =>
+                  updateOption(option.id, "price", e.target.value)
+                }
               />
-              {option.basePrice && option.basePrice > 0 && (
-                <div className="mt-1 space-y-1">
-                  {option.profitMargin && option.profitMargin > 0 && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
-                      Tự động:{" "}
-                      {formatPrice(
-                        (option.basePrice || 0) *
-                          (1 + (option.profitMargin || 0) / 100)
-                      )}{" "}
-                      đ
-                    </p>
-                  )}
-                  {option.price &&
-                    option.price !==
-                      option.basePrice *
-                        (1 + (option.profitMargin || 0) / 100) && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Đã chỉnh sửa thủ công
-                      </p>
-                    )}
-                </div>
-              )}
+              {option.basePrice &&
+                option.basePrice > 0 &&
+                option.profitMargin &&
+                option.profitMargin > 0 && (
+                  <p className="mt-1 ml-1 text-sm text-green-600 dark:text-green-400">
+                    Lãi: +
+                    {formatPrice(
+                      (option.basePrice * option.profitMargin) / 100
+                    )}{" "}
+                    đ
+                  </p>
+                )}
             </div>
 
             <div>
@@ -333,28 +354,87 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
             </div>
           </div>
 
-          {/* Mô tả và nút xóa */}
+          {/* API Token và nút xóa */}
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Mô tả (tùy chọn)
+                API Token
               </label>
-              <input
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                placeholder="Mô tả chi tiết về tùy chọn này"
-                value={option.description || ""}
-                onChange={(e) =>
-                  updateOption(option.id, "description", e.target.value)
-                }
-              />
+              <div className="flex gap-2">
+                <input
+                  ref={editingTokenId === option.id ? tokenInputRef : undefined}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm transition-all ${
+                    editingTokenId === option.id
+                      ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      : "border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed"
+                  }`}
+                  placeholder="Token API để mua sản phẩm này"
+                  value={
+                    editingTokenId === option.id
+                      ? tempTokenValue
+                      : maskToken(option.kioskToken || "")
+                  }
+                  onChange={(e) => setTempTokenValue(e.target.value)}
+                  onKeyDown={(e) => handleTokenKeyDown(e, option.id)}
+                  onBlur={() => {
+                    if (editingTokenId === option.id) {
+                      saveTokenEdit(option.id);
+                    }
+                  }}
+                  disabled={editingTokenId !== option.id}
+                />
+                {editingTokenId === option.id ? (
+                  <>
+                    <button
+                      type="button"
+                      data-token-save-button="true"
+                      onClick={() => saveTokenEdit(option.id)}
+                      className="px-3 py-2 rounded-md text-sm transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 hover:bg-green-200 dark:hover:bg-green-900/50 cursor-pointer"
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelTokenEdit}
+                      className="px-3 py-2 rounded-md text-sm transition-colors bg-gray-100 dark:bg-gray-900/30 text-gray-700 dark:text-gray-400 border border-gray-300 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-900/50 cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startEditingToken(option.id, option.kioskToken || "")
+                    }
+                    className="px-3 py-2 rounded-md text-sm transition-colors bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700 hover:bg-blue-200 dark:hover:bg-blue-900/50 cursor-pointer"
+                  >
+                    Sửa
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => removeOption(option.id)}
+                  className="px-3 py-2 rounded-md border border-red-300 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
+                >
+                  Xóa
+                </button>
+              </div>
+              {editingTokenId === option.id ? (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  Đang chỉnh sửa token. Nhấn Enter để lưu, Esc để hủy.
+                </p>
+              ) : option.kioskToken ? (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Token được bảo vệ. Nhấn "Sửa" để chỉnh sửa.
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Chưa có token API. Nhấn "Sửa" để thêm.
+                </p>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => removeOption(option.id)}
-              className="px-3 py-2 rounded-md border border-red-300 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              Xóa
-            </button>
           </div>
         </div>
       ))}
@@ -394,7 +474,7 @@ export default function OptionsEditor({ value, onChange }: OptionsEditorProps) {
         <button
           type="button"
           onClick={addOption}
-          className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
         >
           + Thêm tùy chọn
         </button>

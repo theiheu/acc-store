@@ -115,7 +115,7 @@ function AuditLog() {
   }, []);
 
   // Filter logs
-  const filteredLogs = logs.filter(log => {
+  const filteredLogs = logs.filter((log) => {
     if (filterAction !== "all" && !log.action.includes(filterAction)) {
       return false;
     }
@@ -128,7 +128,10 @@ function AuditLog() {
   // Paginate logs
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedLogs = filteredLogs.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedLogs = filteredLogs.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
   function getActionIcon(action: string): string {
     if (action.includes("user")) return "👤";
@@ -142,13 +145,14 @@ function AuditLog() {
     if (action.includes("update")) return "text-blue-600 dark:text-blue-400";
     if (action.includes("delete")) return "text-red-600 dark:text-red-400";
     if (action.includes("credit")) return "text-green-600 dark:text-green-400";
-    if (action.includes("status")) return "text-yellow-600 dark:text-yellow-400";
+    if (action.includes("status"))
+      return "text-yellow-600 dark:text-yellow-400";
     return "text-gray-600 dark:text-gray-400";
   }
 
   return (
-    <AdminLayout 
-      title="Nhật ký hoạt động" 
+    <AdminLayout
+      title="Nhật ký hoạt động"
       description="Theo dõi các hoạt động của quản trị viên"
     >
       <div className="space-y-6">
@@ -199,7 +203,7 @@ function AuditLog() {
                   setFilterTargetType("all");
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 Xóa bộ lọc
               </button>
@@ -226,18 +230,27 @@ function AuditLog() {
           ) : (
             <div className="space-y-4">
               {paginatedLogs.map((log) => (
-                <div key={log.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div
+                  key={log.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <span className="text-lg">{getActionIcon(log.action)}</span>
+                        <span className="text-lg">
+                          {getActionIcon(log.action)}
+                        </span>
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium text-gray-900 dark:text-gray-100">
                             {log.adminName}
                           </span>
-                          <span className={`text-sm font-medium ${getActionColor(log.action)}`}>
+                          <span
+                            className={`text-sm font-medium ${getActionColor(
+                              log.action
+                            )}`}
+                          >
                             {log.action.replace(/_/g, " ").toUpperCase()}
                           </span>
                         </div>
@@ -248,18 +261,12 @@ function AuditLog() {
                           <span>
                             📅 {new Date(log.createdAt).toLocaleString("vi-VN")}
                           </span>
-                          <span>
-                            🌐 {log.ipAddress}
-                          </span>
-                          {log.targetId && (
-                            <span>
-                              🎯 ID: {log.targetId}
-                            </span>
-                          )}
+                          <span>🌐 {log.ipAddress}</span>
+                          {log.targetId && <span>🎯 ID: {log.targetId}</span>}
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Metadata */}
                     {log.metadata && Object.keys(log.metadata).length > 0 && (
                       <details className="ml-4">
@@ -283,20 +290,25 @@ function AuditLog() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6">
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                Trang {currentPage} / {totalPages} ({filteredLogs.length} bản ghi)
+                Trang {currentPage} / {totalPages} ({filteredLogs.length} bản
+                ghi)
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   disabled={currentPage === 1}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Trước
                 </button>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={currentPage === totalPages}
-                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Sau
                 </button>

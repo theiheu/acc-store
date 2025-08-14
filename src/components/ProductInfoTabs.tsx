@@ -18,7 +18,7 @@ export default function ProductInfoTabs({
   const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
   const tabs: Array<{ id: TabId; label: string }> = [
-    { id: "overview", label: "Tổng quan" },
+    { id: "overview", label: "Mô tả" },
     { id: "specs", label: "Thông số" },
     { id: "faq", label: "Hỏi đáp" },
     { id: "reviews", label: "Đánh giá" },
@@ -101,7 +101,7 @@ export default function ProductInfoTabs({
 
       {/* Panels */}
       <div className="pt-4 md:pt-5 lg:pt-6">
-        {/* Overview */}
+        {/* Mô tả */}
         <div
           role="tabpanel"
           id="panel-overview"
@@ -136,12 +136,16 @@ export default function ProductInfoTabs({
                   {product.category}
                 </dd>
               </div>
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">Giá cơ bản</dt>
-                <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                  {fmt.format(product.price)}
-                </dd>
-              </div>
+              {product.price && (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-gray-600 dark:text-gray-400">
+                    Giá cơ bản
+                  </dt>
+                  <dd className="text-gray-900 dark:text-gray-100 font-medium">
+                    {fmt.format(product.price)}
+                  </dd>
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4">
                 <dt className="text-gray-600 dark:text-gray-400">Tiền tệ</dt>
                 <dd className="text-gray-900 dark:text-gray-100 font-medium">
@@ -156,6 +160,17 @@ export default function ProductInfoTabs({
                   </dd>
                 </div>
               )}
+              {product.stock !== undefined &&
+                (!product.options || product.options.length === 0) && (
+                  <div className="flex items-start justify-between gap-4">
+                    <dt className="text-gray-600 dark:text-gray-400">
+                      Tồn kho
+                    </dt>
+                    <dd className="text-gray-900 dark:text-gray-100 font-medium">
+                      {product.stock}
+                    </dd>
+                  </div>
+                )}
               {product.options && product.options.length > 0 && (
                 <div className="sm:col-span-2">
                   <dt className="text-gray-600 dark:text-gray-400">Tùy chọn</dt>
@@ -164,7 +179,12 @@ export default function ProductInfoTabs({
                       {product.options.map((opt) => (
                         <li key={opt.id}>
                           <span className="font-medium">{opt.label}</span>:{" "}
-                          {opt.values.map((v) => v.label).join(", ")}
+                          {fmt.format(opt.price)}
+                          {opt.stock !== undefined && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-2">
+                              (Còn {opt.stock})
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>

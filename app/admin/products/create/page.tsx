@@ -15,13 +15,13 @@ interface ProductFormData {
   title: string;
   description: string;
   longDescription: string;
-  price: number;
+  price?: number; // Optional - only used when no options
   currency: string;
   category: string;
   imageEmoji: string;
   imageUrl: string;
   badge: string;
-  stock: number;
+  stock?: number; // Optional - only used when no options
   isActive: boolean;
   options?: ProductOption[];
   supplier?: SupplierInfo;
@@ -37,13 +37,13 @@ function CreateProduct() {
     title: "",
     description: "",
     longDescription: "",
-    price: 0,
+    price: undefined, // Start as undefined - will be set if no options
     currency: "VND",
     category: "gaming",
     imageEmoji: "📦",
     imageUrl: "",
     badge: "",
-    stock: 0,
+    stock: undefined, // Start as undefined - will be set if no options
     isActive: true,
     options: [],
   });
@@ -61,16 +61,31 @@ function CreateProduct() {
       newErrors.description = "Mô tả ngắn là bắt buộc";
     }
 
-    if (formData.price <= 0) {
-      newErrors.price = "Giá phải lớn hơn 0";
-    }
-
     if (!formData.category) {
       newErrors.category = "Danh mục là bắt buộc";
     }
 
-    if (formData.stock < 0) {
-      newErrors.stock = "Số lượng kho không thể âm";
+    const hasOptions = formData.options && formData.options.length > 0;
+
+    if (hasOptions) {
+      // When options exist, validate options instead of main product price/stock
+      const hasInvalidOption = formData.options!.some(
+        (option) =>
+          !option.label.trim() || option.price <= 0 || option.stock < 0
+      );
+      if (hasInvalidOption) {
+        newErrors.options = "Tất cả tùy chọn phải có tên, giá > 0 và kho >= 0";
+      }
+    } else {
+      // When no options, require main product price and stock
+      if (!formData.price || formData.price <= 0) {
+        newErrors.price = "Giá phải lớn hơn 0 (hoặc thêm tùy chọn sản phẩm)";
+      }
+
+      if (formData.stock === undefined || formData.stock < 0) {
+        newErrors.stock =
+          "Số lượng kho không thể âm (hoặc thêm tùy chọn sản phẩm)";
+      }
     }
 
     setErrors(newErrors);
@@ -87,6 +102,7 @@ function CreateProduct() {
 
     try {
       setSaving(true);
+
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,9 +166,9 @@ function CreateProduct() {
         label: it.name,
         price: it.basePrice,
         stock: it.stock,
-        description: `Từ TAPHOAMMO - ${new Intl.NumberFormat("vi-VN").format(
-          it.basePrice
-        )} đ`,
+        kioskToken: kioskToken, // Store the API token for purchasing
+        basePrice: it.basePrice,
+        profitMargin: 0,
       }));
 
       setFormData((prev) => {
@@ -310,6 +326,71 @@ function CreateProduct() {
             </div>
           </div>
 
+          {/* Conditional Price & Stock - only when no options */}
+          {(!formData.options || formData.options.length === 0) && (
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Giá và Kho hàng
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Chỉ cần thiết khi sản phẩm không có tùy chọn (options). Nếu có
+                options, giá và kho sẽ được quản lý trong từng option.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Giá sản phẩm (VND) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.price || ""}
+                    onChange={(e) =>
+                      handleInputChange("price", Number(e.target.value) || 0)
+                    }
+                    className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                      errors.price
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-700"
+                    }`}
+                    placeholder="0"
+                  />
+                  {errors.price && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.price}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Số lượng kho *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.stock || ""}
+                    onChange={(e) =>
+                      handleInputChange("stock", Number(e.target.value) || 0)
+                    }
+                    className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                      errors.stock
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-700"
+                    }`}
+                    placeholder="0"
+                  />
+                  {errors.stock && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.stock}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Option Editor với TAPHOAMMO tích hợp */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -331,14 +412,11 @@ function CreateProduct() {
                     loading={isLoading}
                     loadingText="Đang lấy..."
                     onClick={() =>
-                      withLoading(
-                        fetchFromSupplier,
-                        "Đang lấy dữ liệu từ TAPHOAMMO..."
-                      )
+                      withLoading(fetchFromSupplier, "Đang lấy dữ liệu...")
                     }
-                    className="px-4"
+                    className="px-4 cursor-pointer"
                   >
-                    Lấy từ TAPHOAMMO
+                    Lấy dữ liệu
                   </LoadingButton>
                 </div>
               </div>
@@ -348,155 +426,12 @@ function CreateProduct() {
               value={formData.options}
               onChange={(opts) => handleInputChange("options", opts)}
             />
+            {errors.options && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {errors.options}
+              </p>
+            )}
           </div>
-          {/* Pricing & Inventory */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Giá cả & Kho hàng
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Giá bán *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  value={formData.price}
-                  onChange={(e) =>
-                    handleInputChange("price", parseInt(e.target.value) || 0)
-                  }
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.price
-                      ? "border-red-500"
-                      : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="0"
-                />
-                {errors.price && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.price}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Đơn vị tiền tệ
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) =>
-                    handleInputChange("currency", e.target.value)
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                >
-                  <option value="VND">VND</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Số lượng kho
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.stock}
-                  onChange={(e) =>
-                    handleInputChange("stock", parseInt(e.target.value) || 0)
-                  }
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.stock
-                      ? "border-red-500"
-                      : "border-gray-300 dark:border-gray-700"
-                  }`}
-                  placeholder="0"
-                />
-                {errors.stock && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    {errors.stock}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Giá gốc (TAPHOAMMO)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.supplier?.basePrice || 0}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      supplier: {
-                        provider: prev.supplier?.provider || "taphoammo",
-                        kioskToken: prev.supplier?.kioskToken,
-                        basePrice: parseInt(e.target.value) || 0,
-                        markupPercent: prev.supplier?.markupPercent || 0,
-                        lastStock: prev.supplier?.lastStock,
-                        lastSyncedAt: prev.supplier?.lastSyncedAt,
-                      },
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  % lợi nhuận
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.supplier?.markupPercent || 0}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      supplier: {
-                        provider: prev.supplier?.provider || "taphoammo",
-                        kioskToken: prev.supplier?.kioskToken,
-                        basePrice: prev.supplier?.basePrice || 0,
-                        markupPercent: parseInt(e.target.value) || 0,
-                        lastStock: prev.supplier?.lastStock,
-                        lastSyncedAt: prev.supplier?.lastSyncedAt,
-                      },
-                    }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="0"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Gợi ý: Giá bán = Giá gốc × (1 + % lợi nhuận)
-                </p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Giá bán gợi ý (tự tính)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={(() => {
-                    const base = formData.supplier?.basePrice || 0;
-                    const mk = formData.supplier?.markupPercent || 0;
-                    return base ? Math.round(base * (1 + mk / 100)) : 0;
-                  })()}
-                  readOnly
-                  className="w-full px-3 py-2 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Settings */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -511,7 +446,7 @@ function CreateProduct() {
                 <select
                   value={formData.badge}
                   onChange={(e) => handleInputChange("badge", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent cursor-pointer"
                 >
                   <option value="">Không có badge</option>
                   <option value="new">New</option>
@@ -557,15 +492,16 @@ function CreateProduct() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              className="px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             >
               Hủy
             </button>
+
             <LoadingButton
               type="submit"
               loading={saving}
               loadingText="Đang tạo..."
-              className="px-6 py-2 bg-amber-300 text-gray-900 hover:bg-amber-400 rounded-lg transition-colors font-medium"
+              className="px-6 py-2 bg-amber-300 text-gray-900 hover:bg-amber-400 rounded-lg transition-colors font-medium cursor-pointer"
             >
               Tạo sản phẩm
             </LoadingButton>

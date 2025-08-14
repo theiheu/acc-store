@@ -16,7 +16,7 @@ export type ProductOption = {
   label: string;
   price: number; // Giá bán thực tế của option này
   stock: number; // Số lượng tồn kho của option này
-  description?: string; // Mô tả bổ sung
+  kioskToken?: string; // Token API để mua sản phẩm này
   basePrice?: number; // Giá gốc để tính lợi nhuận
   profitMargin?: number; // % lợi nhuận
 };
@@ -25,7 +25,7 @@ export type Product = {
   id: string;
   title: string;
   description: string;
-  price: number; // in currency units
+  price?: number; // Optional - only used when no options available
   currency: string;
   imageEmoji?: string;
   imageUrl?: string; // optional thumbnail path under /public
@@ -33,9 +33,9 @@ export type Product = {
   longDescription?: string;
   faqs?: Array<{ q: string; a: string }>;
   category: Exclude<CategoryId, "all">;
-  options?: ProductOption[]; // các tùy chọn sản phẩm
+  options?: ProductOption[]; // các tùy chọn sản phẩm - primary pricing source
   // Admin fields (optional for backward compatibility)
-  stock?: number;
+  stock?: number; // Optional - only used when no options available
   sold?: number;
   isActive?: boolean;
   createdAt?: Date;
@@ -63,38 +63,32 @@ export const products: Product[] = [
     category: "gaming",
     options: [
       {
-        id: "duration",
-        label: "Thời hạn sử dụng",
-        values: [
-          { id: "1month", label: "1 tháng", priceModifier: 0 },
-          {
-            id: "3months",
-            label: "3 tháng",
-            priceModifier: 20000,
-            description: "Tiết kiệm 15%",
-          },
-          {
-            id: "6months",
-            label: "6 tháng",
-            priceModifier: 35000,
-            description: "Tiết kiệm 25%",
-          },
-          {
-            id: "1year",
-            label: "1 năm",
-            priceModifier: 60000,
-            description: "Tiết kiệm 35%",
-          },
-        ],
+        id: "1month",
+        label: "1 tháng",
+        price: 49000,
+        stock: 100,
+        kioskToken: "demo_token_1month",
       },
       {
-        id: "region",
-        label: "Khu vực",
-        values: [
-          { id: "vn", label: "Việt Nam", priceModifier: 0 },
-          { id: "sea", label: "Đông Nam Á", priceModifier: 5000 },
-          { id: "global", label: "Toàn cầu", priceModifier: 15000 },
-        ],
+        id: "3months",
+        label: "3 tháng - Tiết kiệm 15%",
+        price: 69000,
+        stock: 50,
+        kioskToken: "demo_token_3months",
+      },
+      {
+        id: "6months",
+        label: "6 tháng - Tiết kiệm 25%",
+        price: 84000,
+        stock: 30,
+        kioskToken: "demo_token_6months",
+      },
+      {
+        id: "1year",
+        label: "1 năm - Tiết kiệm 35%",
+        price: 109000,
+        stock: 20,
+        kioskToken: "demo_token_1year",
       },
     ],
   },
@@ -115,25 +109,44 @@ export const products: Product[] = [
     category: "productivity",
     options: [
       {
-        id: "features",
-        label: "Tính năng",
-        values: [
-          { id: "basic", label: "Cơ bản", priceModifier: 0 },
-          {
-            id: "extended",
-            label: "Mở rộng",
-            priceModifier: 10000,
-            description: "Thêm 5 tính năng",
-          },
-        ],
+        id: "basic",
+        label: "Cơ bản",
+        price: 19000,
+        stock: 200,
+        kioskToken: "demo_token_basic",
+      },
+      {
+        id: "extended",
+        label: "Mở rộng - Thêm 5 tính năng",
+        price: 29000,
+        stock: 150,
+        kioskToken: "demo_token_extended",
       },
     ],
+  },
+  {
+    id: "simple-product",
+    title: "Sản phẩm đơn giản",
+    description: "Sản phẩm không có tùy chọn - dùng giá và kho chính",
+    price: 15000,
+    stock: 50,
+    currency: "VND",
+    imageEmoji: "📱",
+    category: "tools",
+    longDescription:
+      "Đây là ví dụ về sản phẩm đơn giản không có options, sử dụng giá và kho của sản phẩm chính.",
+    faqs: [
+      {
+        q: "Có tùy chọn không?",
+        a: "Không, đây là sản phẩm đơn giản với giá cố định.",
+      },
+    ],
+    // No options - uses main product price and stock
   },
   {
     id: "tiktok",
     title: "Tài khoản TikTok",
     description: "Tài khoản TikTok xác minh cơ bản",
-    price: 29000,
     currency: "VND",
     imageEmoji: "🎵",
     imageUrl: "/thumbs/tiktok.svg",
@@ -147,27 +160,32 @@ export const products: Product[] = [
     category: "social",
     options: [
       {
-        id: "verification",
-        label: "Trạng thái xác minh",
-        values: [
-          { id: "unverified", label: "Chưa xác minh", priceModifier: 0 },
-          {
-            id: "verified",
-            label: "Đã xác minh",
-            priceModifier: 15000,
-            description: "Tick xanh",
-          },
-        ],
+        id: "unverified-0-1k",
+        label: "Chưa xác minh, 0-1K followers",
+        price: 29000,
+        stock: 50,
+        kioskToken: "demo_token_tiktok_basic",
       },
       {
-        id: "followers",
-        label: "Số lượng follower",
-        values: [
-          { id: "0-1k", label: "0-1K followers", priceModifier: 0 },
-          { id: "1k-5k", label: "1K-5K followers", priceModifier: 8000 },
-          { id: "5k-10k", label: "5K-10K followers", priceModifier: 20000 },
-          { id: "10k+", label: "10K+ followers", priceModifier: 40000 },
-        ],
+        id: "unverified-1k-5k",
+        label: "Chưa xác minh, 1K-5K followers",
+        price: 37000,
+        stock: 30,
+        kioskToken: "demo_token_tiktok_1k",
+      },
+      {
+        id: "verified-0-1k",
+        label: "Đã xác minh (Tick xanh), 0-1K followers",
+        price: 44000,
+        stock: 20,
+        kioskToken: "demo_token_tiktok_verified",
+      },
+      {
+        id: "verified-5k-10k",
+        label: "Đã xác minh (Tick xanh), 5K-10K followers",
+        price: 64000,
+        stock: 10,
+        kioskToken: "demo_token_tiktok_premium",
       },
     ],
   },
@@ -211,6 +229,9 @@ export const products: Product[] = [
 
 export function getProductById(id?: string | null) {
   if (!id) return null;
+
+  // For client-side or when dataStore is not available, use static products
+  // The product detail page will fetch from API instead
   return products.find((p) => p.id === id) || null;
 }
 
@@ -238,9 +259,9 @@ export function calculateProductPrice(
   product: Product,
   selectedOptionId?: string
 ): number {
-  // If no options, return base product price
+  // If no options, return base product price (fallback to 0 if undefined)
   if (!product.options || product.options.length === 0) {
-    return product.price;
+    return product.price || 0;
   }
 
   // If options exist, find the selected option and return its price
@@ -256,5 +277,5 @@ export function calculateProductPrice(
   // Fallback to first available option price or base price
   const firstOption =
     product.options.find((opt) => opt.stock > 0) || product.options[0];
-  return firstOption ? firstOption.price : product.price;
+  return firstOption ? firstOption.price : product.price || 0;
 }
