@@ -13,7 +13,8 @@ import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { products, isLoading } = useProductsWithLoading(); // Get real-time products with loading state
+  const { products, isLoading } = useProductsWithLoading();
+
   const [category, setCategory] = useState<CategoryId>("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
@@ -58,7 +59,6 @@ export default function Home() {
     } catch {}
     setCategory(initialCategory);
     setQ(initialQ);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -108,6 +108,7 @@ export default function Home() {
 
   const filtered = useMemo(() => {
     let list: Product[] = products;
+
     if (debouncedQ) {
       list = list.filter((p: Product) =>
         normalized(`${p.title} ${p.description}`).includes(
@@ -115,11 +116,13 @@ export default function Home() {
         )
       );
     }
-    if (category !== "all")
+
+    if (category !== "all") {
       list = list.filter((p: Product) => p.category === category);
+    }
 
     return list;
-  }, [category, debouncedQ]);
+  }, [products, category, debouncedQ]);
 
   // Handle filtering loading state
   useEffect(() => {

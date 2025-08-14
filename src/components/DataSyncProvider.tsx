@@ -75,6 +75,16 @@ export function DataSyncProvider({
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  // Force load products immediately on mount
+  useEffect(() => {
+    dataStore.ensureProductsLoaded();
+    const products = dataStore.getPublicProducts();
+    if (products.length > 0) {
+      setPublicProducts(products);
+      setIsInitialLoading(false);
+    }
+  }, []);
+
   // Set up real-time updates
   const { isConnected } = useRealtimeUpdates({
     onUserUpdated: (data) => {
@@ -208,6 +218,31 @@ export function DataSyncProvider({
 
   // Define refreshData function before useEffect
   const refreshData = useCallback(async () => {
+    // Load products first
+    setProducts(dataStore.getProducts());
+
+    // Set immediate fallback from dataStore first
+    const immediateProducts = dataStore.getPublicProducts();
+    setPublicProducts(immediateProducts);
+
+    // Then fetch public products from API endpoint
+    try {
+      const response = await fetch("/api/products");
+      const result = await response.json();
+      if (result.success) {
+        setPublicProducts(result.data);
+      } else {
+        // Fallback to direct dataStore call
+        const fallbackProducts = dataStore.getPublicProducts();
+        setPublicProducts(fallbackProducts);
+      }
+    } catch (error) {
+      // Fallback to direct dataStore call
+      const fallbackProducts = dataStore.getPublicProducts();
+      setPublicProducts(fallbackProducts);
+    }
+
+    // Handle users...
     setUsers(dataStore.getUsers());
 
     if (currentUserEmail) {
@@ -257,39 +292,8 @@ export function DataSyncProvider({
       setCurrentUser(user);
     }
 
-    // Update users array after potential user creation
-    const finalUsers = dataStore.getUsers();
-    setUsers(finalUsers);
-
-    setProducts(dataStore.getProducts());
-
-    // Set immediate fallback from dataStore first
-    const immediateProducts = dataStore.getPublicProducts();
-    setPublicProducts(immediateProducts);
-
-    // Then fetch public products from API endpoint
-    try {
-      const response = await fetch("/api/products");
-      const result = await response.json();
-      if (result.success) {
-        setPublicProducts(result.data);
-      } else {
-        // Fallback to direct dataStore call
-        const fallbackProducts = dataStore.getPublicProducts();
-        setPublicProducts(fallbackProducts);
-      }
-    } catch (error) {
-      // Fallback to direct dataStore call
-      const fallbackProducts = dataStore.getPublicProducts();
-      setPublicProducts(fallbackProducts);
-    }
-
     setTransactions(dataStore.getTransactions());
     setLastUpdate(new Date());
-
-    if (currentUserEmail) {
-      setCurrentUser(dataStore.getPublicUser(currentUserEmail));
-    }
 
     // Mark initial loading as complete
     setIsInitialLoading(false);
@@ -305,6 +309,7 @@ export function DataSyncProvider({
 
     if (immediateProducts.length > 0) {
       setPublicProducts(immediateProducts);
+      setIsInitialLoading(false);
     }
 
     const initializeData = async () => {
@@ -312,7 +317,8 @@ export function DataSyncProvider({
         await refreshData();
       } catch (error) {
         console.error("DataSyncProvider: Failed to load initial data", error);
-        setIsInitialLoading(false); // Ensure loading state is cleared even on error
+      } finally {
+        setIsInitialLoading(false);
       }
     };
     initializeData();
@@ -469,7 +475,7 @@ export function DataSyncProvider({
     stats,
     lastUpdate,
     refreshData,
-    isInitialLoading,
+    isInitialLoading: false, // Force disable loading
   };
 
   return (
@@ -508,9 +514,13 @@ export function useProducts() {
 // Hook for products with loading state
 export function useProductsWithLoading() {
   const { publicProducts, isInitialLoading } = useDataSync();
+
+  // Force show products if available, ignore loading state
+  const shouldShowLoading = publicProducts.length === 0 && isInitialLoading;
+
   return {
     products: publicProducts,
-    isLoading: isInitialLoading,
+    isLoading: shouldShowLoading,
   };
 }
 

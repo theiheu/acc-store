@@ -250,6 +250,7 @@ class DataStore {
 
   // Public method to ensure products are loaded (for client-side initialization)
   ensureProductsLoaded(): void {
+    // Force load static products if not already loaded
     if (this.products.size === 0) {
       this.initializeData();
     }
@@ -837,31 +838,37 @@ class DataStore {
 
   // Utility methods for public site integration
   getPublicProducts(): Product[] {
-    const allProducts = Array.from(this.products.values());
-    const activeProducts = allProducts.filter((product) => product.isActive);
+    const products = Array.from(this.products.values())
+      .filter((p) => p.isActive !== false)
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        price: p.price,
+        currency: p.currency,
+        imageEmoji: p.imageEmoji,
+        imageUrl: p.imageUrl,
+        badge: p.badge,
+        longDescription: p.longDescription,
+        faqs: p.faqs,
+        category: p.category,
+        options: p.options,
+        stock: p.stock,
+        createdAt: p.createdAt,
+        sold: p.sold,
+      }))
+      .sort((a, b) => {
+        // Sort by creation date (newest first)
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (dateB !== dateA) {
+          return dateB - dateA; // Newest first
+        }
+        // Then by sold count (highest first)
+        return (b.sold || 0) - (a.sold || 0);
+      });
 
-    return activeProducts.map((product) => ({
-      id: product.id,
-      title: product.title,
-      description: product.description,
-      price: product.price,
-      currency: product.currency,
-      imageEmoji: product.imageEmoji,
-      imageUrl: product.imageUrl,
-      badge: product.badge,
-      longDescription: product.longDescription,
-      faqs: product.faqs,
-      category: product.category,
-      options: product.options,
-      // Include admin fields for compatibility
-      stock: product.stock,
-      sold: product.sold,
-      isActive: product.isActive,
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
-      createdBy: product.createdBy,
-      lastModifiedBy: product.lastModifiedBy,
-    }));
+    return products;
   }
 
   getPublicUser(email: string): User | null {

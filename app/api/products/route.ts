@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       if (dateB !== dateA) {
-        return dateB - dateA;
+        return dateB - dateA; // Newest first
       }
 
       // Then by sold count (highest first)
