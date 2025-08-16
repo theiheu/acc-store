@@ -11,6 +11,9 @@ import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
 import ProductOptions from "@/src/components/ProductOptions";
 import ProductInfoTabs from "@/src/components/ProductInfoTabs";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
+import ConfirmPurchaseModal from "@/src/components/ConfirmPurchaseModal";
+import { useRouter } from "next/navigation";
+import { useDataSync } from "@/src/components/DataSyncProvider";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -19,6 +22,8 @@ export default function ProductDetailPage() {
     : (params?.id as string | undefined);
 
   // Always call ALL hooks at the top in the same order
+  const router = useRouter();
+  const { currentUser } = useDataSync();
   const { hideLoading, showLoading } = useGlobalLoading();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +33,7 @@ export default function ProductDetailPage() {
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(
     null
   );
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { show } = useToastContext();
 
   const fmt = useMemo(
@@ -268,38 +274,11 @@ export default function ProductDetailPage() {
                       }
                     }
 
-                    showLoading("Đang xử lý đơn hàng...");
-                    const res = await fetch("/api/orders", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        productId: product.id,
-                        quantity: qty,
-                        selectedOptionId: selectedOption?.id,
-                        price: currentPrice,
-                      }),
-                    });
-                    const data = await res.json();
-                    if (!data.success) {
-                      show(data.error || "Không thể tạo đơn hàng");
-                      return;
-                    }
-                    if (data.data?.credentials) {
-                      show(
-                        "Mua hàng thành công. Thông tin tài khoản đã sẵn sàng."
-                      );
-                      // Optionally render credentials; for now just alert count
-                      alert(
-                        `Nhận được ${data.data.credentials.length} tài khoản.`
-                      );
-                    } else {
-                      show(
-                        "Đơn hàng đang được xử lý. Vui lòng kiểm tra lịch sử đơn hàng."
-                      );
-                    }
+                    // Open confirmation modal
+                    setConfirmOpen(true);
                   } catch (e) {
                     console.error(e);
-                    show("Có lỗi xảy ra khi tạo đơn hàng");
+                    show("Có lỗi xảy ra khi kiểm tra đơn hàng");
                   }
                 }}
                 className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 cursor-pointer"
@@ -330,7 +309,7 @@ export default function ProductDetailPage() {
               <ul className="list-disc list-inside space-y-1">
                 <li>Bảo hành 7 ngày (áp dụng cho gói phù hợp)</li>
                 <li>Hỗ trợ nhanh qua email</li>
-                <li>Giao tài khoản tự động sau khi thanh toán</li>
+                <li>Cập nhật tài khoản tự động sau khi thanh toán</li>
               </ul>
             </div>
           </div>
@@ -341,6 +320,51 @@ export default function ProductDetailPage() {
           <ProductInfoTabs product={product} />
         </div>
       </div>
+
+      {/* Confirm purchase modal */}
+      <ConfirmPurchaseModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={async () => {
+          try {
+            showLoading("Đang xử lý đơn hàng...");
+            const res = await fetch("/api/orders", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productId: product.id,
+                quantity: qty,
+                selectedOptionId: selectedOption?.id,
+                price: currentPrice,
+              }),
+            });
+            const data = await res.json();
+            if (!data.success) {
+              show(data.error || "Không thể tạo đơn hàng");
+              return;
+            }
+            setConfirmOpen(false);
+            if (data.data?.credentials) {
+              show("Mua hàng thành công. Thông tin tài khoản đã sẵn sàng.");
+              // Redirect to orders page
+              window.location.href = "/orders";
+            } else {
+              show(
+                "Đơn hàng đang được xử lý. Vui lòng kiểm tra lịch sử đơn hàng."
+              );
+              window.location.href = "/orders";
+            }
+          } catch (e) {
+            console.error(e);
+            show("Có lỗi xảy ra khi tạo đơn hàng");
+          }
+        }}
+        productTitle={product.title}
+        quantity={qty}
+        unitPrice={currentPrice}
+        currency={product.currency}
+        balance={currentUser?.balance}
+      />
     </div>
   );
 }

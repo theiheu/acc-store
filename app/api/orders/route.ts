@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       quantity,
       unitPrice,
       totalAmount,
-      status: "pending",
+      status: "Đang chờ xử lý",
       createdAt: new Date(),
       updatedAt: new Date(),
       selectedOptionId: selectedOption?.id,
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supplier = new TapHoaMMOClient({
-      userToken: kioskToken,
+      kioskToken,
     });
 
     const buyResp = await supplier.buyProducts(quantity, promotion);
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         (buyResp && buyResp.description) ||
         "Không thể đặt hàng từ nhà cung cấp";
       dataStore.updateOrder(order.id, {
-        status: "cancelled",
+        status: "Đã huỷ",
         updatedAt: new Date(),
       });
       // Refund
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
       // Mark still pending so admin can investigate
       return NextResponse.json({
         success: true,
-        data: { orderId: order.id, status: "pending" },
+        data: { orderId: order.id, status: "Đang chờ xử lý" },
       });
     }
 
@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
     const deliveryInfo = JSON.stringify(parsed);
 
     dataStore.updateOrder(order.id, {
-      status: "completed",
+      status: "Hoàn thành",
       updatedAt: new Date(),
       completedAt: new Date(),
       deliveryInfo,

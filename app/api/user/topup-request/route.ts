@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     // Check if user has pending requests. If exists, update the latest with new details and reuse it
     const pendingRequests = dataStore
       .getUserTopupRequests(user.id)
-      .filter((req) => req.status === "pending")
+      .filter((req) => req.status === "Đang chờ xử lý")
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     if (pendingRequests.length > 0) {
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       userName: user.name,
       requestedAmount: amount,
       userNotes: notes || "",
-      status: "pending",
+      status: "Đang chờ xử lý",
       qrCodeData,
       transferContent,
       bankInfo,

@@ -92,7 +92,7 @@ export async function POST(
       );
     }
 
-    if (topupRequest.status !== "pending") {
+    if (topupRequest.status !== "Đang chờ xử lý") {
       return NextResponse.json(
         {
           success: false,

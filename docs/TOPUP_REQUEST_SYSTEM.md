@@ -9,16 +9,19 @@ This document describes the comprehensive user account balance management system
 ### Core Components
 
 1. **User Interface** (`/account` page)
+
    - Top-up request modal with amount input and notes
    - Request history display with status tracking
    - Real-time balance updates
 
 2. **Admin Interface** (`/admin/topup-requests` page)
+
    - Pending requests dashboard with statistics
    - Request approval/rejection workflow
    - Batch processing capabilities
 
 3. **API Endpoints**
+
    - `/api/user/topup-request` - User request submission
    - `/api/admin/topup-requests` - Admin request management
    - `/api/admin/topup-requests/[id]` - Individual request processing
@@ -35,14 +38,15 @@ This document describes the comprehensive user account balance management system
 **User Action**: User clicks "Yêu cầu nạp tiền" on account page
 
 **Process**:
+
 ```typescript
 // User submits request
 const response = await fetch("/api/user/topup-request", {
   method: "POST",
   body: JSON.stringify({
     amount: 100000,
-    notes: "Cần nạp tiền để mua gói premium"
-  })
+    notes: "Cần nạp tiền để mua gói premium",
+  }),
 });
 
 // System creates request
@@ -52,7 +56,7 @@ const request = dataStore.createTopupRequest({
   userName: user.name,
   requestedAmount: amount,
   userNotes: notes,
-  status: "pending"
+  status: "pending",
 });
 
 // Real-time event emitted
@@ -60,6 +64,7 @@ dataStore.emit({ type: "TOPUP_REQUEST_CREATED", payload: request });
 ```
 
 **Validation Rules**:
+
 - ✅ Minimum amount: 10,000 VND
 - ✅ Maximum amount: 10,000,000 VND
 - ✅ Maximum 3 pending requests per user
@@ -70,12 +75,14 @@ dataStore.emit({ type: "TOPUP_REQUEST_CREATED", payload: request });
 **Admin Dashboard**: Request appears immediately in `/admin/topup-requests`
 
 **Request Information Displayed**:
+
 - User details (name, email, current balance)
 - Requested amount and user notes
 - Request timestamp
 - Status (pending/approved/rejected)
 
 **Admin Actions Available**:
+
 - **Approve**: Set approved amount, add admin notes
 - **Reject**: Provide rejection reason, add admin notes
 - **View Details**: Full request history and user context
@@ -83,6 +90,7 @@ dataStore.emit({ type: "TOPUP_REQUEST_CREATED", payload: request });
 ### 3. Admin Processing
 
 **Approval Process**:
+
 ```typescript
 // Admin approves request
 const result = dataStore.processTopupRequest(
@@ -92,7 +100,7 @@ const result = dataStore.processTopupRequest(
   adminName,
   {
     approvedAmount: 120000, // Can modify amount
-    adminNotes: "Approved with bonus for loyal customer"
+    adminNotes: "Approved with bonus for loyal customer",
   }
 );
 
@@ -110,30 +118,26 @@ const transaction = dataStore.createTransaction({
   metadata: {
     topupRequestId: requestId,
     requestedAmount: originalAmount,
-    approvedAmount
-  }
+    approvedAmount,
+  },
 });
 ```
 
 **Rejection Process**:
+
 ```typescript
 // Admin rejects request
-dataStore.processTopupRequest(
-  requestId,
-  "reject",
-  adminId,
-  adminName,
-  {
-    rejectionReason: "Insufficient documentation",
-    adminNotes: "Please provide payment proof"
-  }
-);
+dataStore.processTopupRequest(requestId, "reject", adminId, adminName, {
+  rejectionReason: "Insufficient documentation",
+  adminNotes: "Please provide payment proof",
+});
 // No balance change, only status update
 ```
 
 ### 4. Real-time Synchronization
 
 **Event Broadcasting**:
+
 ```typescript
 // SSE events sent to all connected clients
 switch (event.type) {
@@ -141,12 +145,12 @@ switch (event.type) {
     // Admin dashboard shows new request
     sendEvent("topup-request-created", { request: event.payload });
     break;
-    
+
   case "TOPUP_REQUEST_PROCESSED":
     // User sees status update, balance change
     sendEvent("topup-request-processed", { request: event.payload });
     break;
-    
+
   case "USER_BALANCE_CHANGED":
     // Account page updates balance immediately
     sendEvent("balance-updated", { userId, newBalance });
@@ -155,6 +159,7 @@ switch (event.type) {
 ```
 
 **Client-side Updates**:
+
 - ✅ User balance updates without page refresh
 - ✅ Request status changes appear instantly
 - ✅ Transaction history updates in real-time
@@ -163,6 +168,7 @@ switch (event.type) {
 ## 📊 Data Models
 
 ### TopupRequest Interface
+
 ```typescript
 interface TopupRequest {
   id: string;
@@ -173,7 +179,7 @@ interface TopupRequest {
   approvedAmount?: number;
   userNotes?: string;
   adminNotes?: string;
-  status: "pending" | "approved" | "rejected" | "cancelled";
+  status: "pending" | "approved" | "rejected" | "Đã huỷ";
   createdAt: Date;
   processedAt?: Date;
   processedBy?: string; // Admin ID
@@ -184,6 +190,7 @@ interface TopupRequest {
 ```
 
 ### Transaction Integration
+
 ```typescript
 // Transactions created from approved requests include metadata
 interface UserTransaction {
@@ -208,6 +215,7 @@ interface UserTransaction {
 ### User Components
 
 **TopupRequestModal** (`src/components/TopupRequestModal.tsx`):
+
 - Amount input with formatting
 - Quick amount buttons (50k, 100k, 200k, etc.)
 - Notes textarea
@@ -215,6 +223,7 @@ interface UserTransaction {
 - Loading states
 
 **TopupRequestHistory** (`src/components/TopupRequestHistory.tsx`):
+
 - Request list with status badges
 - Approval/rejection details
 - Admin notes display
@@ -223,12 +232,14 @@ interface UserTransaction {
 ### Admin Components
 
 **AdminTopupRequestsPage** (`app/admin/topup-requests/page.tsx`):
+
 - Statistics dashboard
 - Filter tabs (pending/approved/rejected/all)
 - Request processing interface
 - Batch operations
 
 **TopupRequestItem** (inline component):
+
 - User information display
 - Approval form with amount modification
 - Rejection form with reason input
@@ -239,6 +250,7 @@ interface UserTransaction {
 ### User Endpoints
 
 **POST /api/user/topup-request**
+
 ```typescript
 // Request body
 {
@@ -259,6 +271,7 @@ interface UserTransaction {
 ```
 
 **GET /api/user/topup-request**
+
 ```typescript
 // Response: User's request history
 {
@@ -270,6 +283,7 @@ interface UserTransaction {
 ### Admin Endpoints
 
 **GET /api/admin/topup-requests**
+
 ```typescript
 // Query parameters
 ?status=pending&limit=50&offset=0
@@ -290,6 +304,7 @@ interface UserTransaction {
 ```
 
 **POST /api/admin/topup-requests/[id]**
+
 ```typescript
 // Request body for approval
 {
@@ -320,6 +335,7 @@ interface UserTransaction {
 ### Automated Testing
 
 **Comprehensive Workflow Test**: `/test-topup-workflow`
+
 - ✅ User request creation
 - ✅ Admin approval process
 - ✅ Balance update verification
@@ -331,6 +347,7 @@ interface UserTransaction {
 ### Manual Testing Checklist
 
 **User Flow**:
+
 - [ ] Login and access account page
 - [ ] Click "Yêu cầu nạp tiền" button
 - [ ] Fill amount and notes, submit request
@@ -338,6 +355,7 @@ interface UserTransaction {
 - [ ] Check real-time status updates
 
 **Admin Flow**:
+
 - [ ] Access admin top-up requests page
 - [ ] Verify new request appears immediately
 - [ ] Test approval with modified amount
@@ -345,6 +363,7 @@ interface UserTransaction {
 - [ ] Verify statistics update
 
 **Integration**:
+
 - [ ] User balance updates in real-time
 - [ ] Transaction history shows correct details
 - [ ] Cross-page synchronization works
@@ -353,11 +372,13 @@ interface UserTransaction {
 ## 📈 Performance & Scalability
 
 ### Current Implementation
+
 - **In-memory data store** for development/testing
 - **Real-time events** via Server-Sent Events
 - **Optimistic updates** for better UX
 
 ### Production Considerations
+
 - **Database integration** (PostgreSQL/MySQL)
 - **Redis for real-time events** and caching
 - **Rate limiting** for request submissions
@@ -367,18 +388,21 @@ interface UserTransaction {
 ## 🎯 Key Benefits
 
 ### For Users
+
 - ✅ **Self-service**: Request top-ups without contacting support
 - ✅ **Transparency**: Full visibility into request status
 - ✅ **Real-time updates**: Instant balance updates when approved
 - ✅ **History tracking**: Complete request and transaction history
 
 ### For Administrators
+
 - ✅ **Centralized management**: All requests in one dashboard
 - ✅ **Flexible approval**: Can modify amounts and add notes
 - ✅ **Audit trail**: Complete history of all actions
 - ✅ **Real-time notifications**: Immediate awareness of new requests
 
 ### For System
+
 - ✅ **Data consistency**: Single source of truth
 - ✅ **Real-time sync**: Instant updates across all interfaces
 - ✅ **Scalable architecture**: Ready for production deployment

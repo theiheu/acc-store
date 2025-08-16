@@ -104,29 +104,8 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       >
         {/* Header */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-amber-300 flex items-center justify-center">
-              <span className="text-lg font-bold text-gray-900">A</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Admin Panel
-              </h1>
-            </div>
-          </div>
-
-          {/* Close button for mobile */}
-          <button
-            onClick={onClose}
-            className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <span className="text-xl">✕</span>
-          </button>
-        </div>
-
-        {/* Admin info */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-3">
+          {/* Admin info */}
+          <div className="flex items-center gap-3 p-4">
             <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-300/10 flex items-center justify-center">
               <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
                 {adminProfile?.name?.charAt(0).toUpperCase() || "A"}
@@ -141,6 +120,14 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               </p>
             </div>
           </div>
+
+          {/* Close button for mobile */}
+          <button
+            onClick={onClose}
+            className="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <span className="text-xl">✕</span>
+          </button>
         </div>
 
         {/* Navigation */}

@@ -36,9 +36,9 @@ export async function PATCH(
       );
     }
 
-    if (reqItem.status !== "pending") {
+    if (reqItem.status !== "Đang chờ xử lý") {
       return NextResponse.json(
-        { success: false, error: "Only pending requests can be cancelled" },
+        { success: false, error: "Only pending requests can be Đã huỷ" },
         { status: 400 }
       );
     }
@@ -59,7 +59,10 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ success: true, data: { id: updated.id, status: updated.status } });
+    return NextResponse.json({
+      success: true,
+      data: { id: updated.id, status: updated.status },
+    });
   } catch (error) {
     console.error("Error cancelling top-up request:", error);
     return NextResponse.json(
@@ -68,4 +71,3 @@ export async function PATCH(
     );
   }
 }
-

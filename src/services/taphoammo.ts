@@ -6,6 +6,15 @@ export const fetch = globalThis.fetch;
 
 const USER_TOKEN = process.env.TAPHOAMMO_USER_TOKEN;
 const KIOSK_TOKEN = process.env.TAPHOAMMO_KIOSK_TOKEN;
+const MOCK_TAPHOAMMO =
+  (process.env.MOCK_TAPHOAMMO || "").toLowerCase() === "true";
+
+// Delay helpers for mock mode
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const randomDelay = async (min = 1000, max = 3000) => {
+  const d = Math.floor(Math.random() * (max - min + 1)) + min;
+  await sleep(d);
+};
 
 export type BuyResponse = {
   success: string; // "true" | "false"
@@ -36,8 +45,10 @@ export class TapHoaMMOClient {
   constructor(opts?: { userToken?: string; kioskToken?: string }) {
     this.userToken = opts?.userToken ?? USER_TOKEN ?? "";
     this.kioskToken = opts?.kioskToken ?? KIOSK_TOKEN ?? "";
-    if (!this.userToken || !this.kioskToken) {
-      throw new Error("Missing required TapHoaMMO API tokens.");
+    if (!MOCK_TAPHOAMMO) {
+      if (!this.userToken || !this.kioskToken) {
+        throw new Error("Missing required TapHoaMMO API tokens.");
+      }
     }
   }
 
@@ -72,6 +83,10 @@ export class TapHoaMMOClient {
     quantity: number,
     promotion?: string
   ): Promise<BuyResponse> {
+    if (MOCK_TAPHOAMMO) {
+      await randomDelay(1000, 3000);
+      return { success: "true", order_id: `mock-order-${Date.now()}` };
+    }
     const base = `https://taphoammo.net/api/buyProducts?kioskToken=${encodeURIComponent(
       this.kioskToken
     )}&userToken=${encodeURIComponent(
@@ -85,6 +100,16 @@ export class TapHoaMMOClient {
 
   // Retrieve order products/credentials
   async getProducts(orderId: string): Promise<GetProductsResponse> {
+    if (MOCK_TAPHOAMMO) {
+      await randomDelay(1000, 3000);
+      return {
+        success: "true",
+        data: [
+          { product: "username:test_user" },
+          { product: "password:secret123" },
+        ],
+      };
+    }
     const url = `https://taphoammo.net/api/getProducts?orderId=${encodeURIComponent(
       orderId
     )}&userToken=${encodeURIComponent(this.userToken)}`;

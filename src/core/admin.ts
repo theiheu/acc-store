@@ -80,7 +80,7 @@ export interface Order {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  status: "pending" | "completed" | "cancelled" | "refunded";
+  status: "Đang chờ xử lý" | "Hoàn thành" | "Đã huỷ" | "refunded";
   paymentMethod?: string;
   paymentId?: string;
   selectedOptionId?: string; // Selected product option ID
@@ -150,7 +150,7 @@ export interface TopupRequest {
   approvedAmount?: number;
   userNotes?: string;
   adminNotes?: string;
-  status: "pending" | "approved" | "rejected" | "cancelled";
+  status: "Đang chờ xử lý" | "approved" | "rejected" | "Đã huỷ";
   createdAt: Date;
   processedAt?: Date;
   processedBy?: string; // Admin ID

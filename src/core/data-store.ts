@@ -652,7 +652,7 @@ class DataStore {
 
   getPendingTopupRequests(): TopupRequest[] {
     return Array.from(this.topupRequests.values())
-      .filter((req) => req.status === "pending")
+      .filter((req) => req.status === "Đang chờ xử lý")
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -698,7 +698,7 @@ class DataStore {
     } = {}
   ): { request: TopupRequest | null; transaction?: UserTransaction } {
     const request = this.topupRequests.get(requestId);
-    if (!request || request.status !== "pending") {
+    if (!request || request.status !== "Đang chờ xử lý") {
       return { request: null };
     }
 
