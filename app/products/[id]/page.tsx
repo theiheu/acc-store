@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { slugify } from "@/src/utils/slug";
+import { toProductPath } from "@/src/utils/slug";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
@@ -111,9 +111,7 @@ export default function ProductDetailPage() {
     { href: "/", label: "Trang chủ" },
     { href: "/products", label: "Sản phẩm" },
     {
-      href: `/products/${encodeURIComponent(
-        product.category
-      )}/${encodeURIComponent(slugify(product.title))}`,
+      href: toProductPath(product.category, product.title),
       label: product.title,
     },
   ];
@@ -122,6 +120,70 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-[calc(100dvh-80px)] bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      {/* JSON-LD: Product + Breadcrumbs */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.title,
+            description: product.description,
+            image: product.imageUrl ? [product.imageUrl] : undefined,
+            sku: product.id,
+            category: product.category,
+            offers: {
+              "@type": "Offer",
+              priceCurrency: product.currency,
+              price: selectedOption?.price ?? product.price ?? 0,
+              availability:
+                (selectedOption?.stock ?? product.stock ?? 0) > 0
+                  ? "https://schema.org/InStock"
+                  : "https://schema.org/OutOfStock",
+              url:
+                (process.env.NEXT_PUBLIC_SITE_URL || "") +
+                require("@/src/utils/slug").toProductPath(
+                  product.category,
+                  product.title
+                ),
+            },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Trang chủ",
+                item: process.env.NEXT_PUBLIC_SITE_URL || "",
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Sản phẩm",
+                item: (process.env.NEXT_PUBLIC_SITE_URL || "") + "/products",
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: product.title,
+                item:
+                  (process.env.NEXT_PUBLIC_SITE_URL || "") +
+                  require("@/src/utils/slug").toProductPath(
+                    product.category,
+                    product.title
+                  ),
+              },
+            ],
+          }),
+        }}
+      />
       <div className="mx-auto max-w-6xl xl:max-w-7xl px-4 lg:px-6 py-8 space-y-4">
         {/* Breadcrumbs */}
         <nav

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import { slugify } from "@/src/utils/slug";
+import { toProductPath } from "@/src/utils/slug";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useCurrentUser, useDataSync } from "@/src/components/DataSyncProvider";
@@ -416,7 +416,6 @@ export default function AccountPage() {
             ) : (
               <div className="space-y-3">
                 {orders.map((o) => {
-                  console.log(`🚀 | o:`, o);
                   return (
                     <div
                       key={o.id}
@@ -425,11 +424,10 @@ export default function AccountPage() {
                       <div>
                         {o.productId ? (
                           <Link
-                            href={`/products/${encodeURIComponent(
-                              getProductById(o.productId)?.category || ""
-                            )}/${encodeURIComponent(
-                              slugify(getProductById(o.productId)?.title || "")
-                            )}`}
+                            href={toProductPath(
+                              getProductById(o.productId)?.category || "",
+                              getProductById(o.productId)?.title || ""
+                            )}
                             className="font-medium text-blue-600 hover:underline dark:text-blue-400"
                           >
                             {

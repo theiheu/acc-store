@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { slugify } from "@/src/utils/slug";
+
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import Image from "next/image";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
-import { Skeleton, SkeletonText } from "@/src/components/Skeleton";
 import type { Product } from "@/src/core/products";
-import { parseCredentials } from "@/src/utils/credentials";
-import {
-  getOrderStatusBadge,
-  getOrderStatusText,
-} from "@/src/utils/orderStatus";
+import OrderCard from "@/src/components/orders/OrderCard";
+import OrderFilters, {
+  OrderFiltersState,
+} from "@/src/components/orders/OrderFilters";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
 export default function OrdersPage() {
@@ -27,6 +24,12 @@ export default function OrdersPage() {
   type Toast = { id: number; msg: string; type: "success" | "info" | "error" };
   const [toasts, setToasts] = useState<Toast[]>([]);
   const announceRef = useRef<HTMLDivElement | null>(null);
+
+  const [filters, setFilters] = useState<OrderFiltersState>({
+    status: "all",
+    q: "",
+  });
+
   const loadOrders = useCallback(async () => {
     try {
       setLoadingOrders(true);
@@ -95,100 +98,10 @@ export default function OrdersPage() {
     if (status === "loading") return;
     if (!session?.user) {
       router.replace("/login?next=/orders");
-    } else {
-      (async () => {
-        try {
-          const res = await fetch("/api/user/orders");
-          const data = await res.json();
-          if (data.success) {
-            const list = data.data || [];
-            // Sort newest first by updatedAt or createdAt
-            const getTime = (o: any) => {
-              const t = o?.updatedAt ?? o?.createdAt ?? 0;
-              return new Date(t).getTime() || 0;
-            };
-            const sorted = [...list].sort((a, b) => getTime(b) - getTime(a));
-            setOrders(sorted);
-            // Fetch products for each order (unique IDs)
-            const uniqueProductIds = Array.from(
-              new Set(sorted.map((o: any) => o.productId).filter(Boolean))
-            );
-            const entries: Array<[string, Product | null]> = await Promise.all(
-              uniqueProductIds.map(async (pid: string) => {
-                try {
-                  const pr = await fetch(`/api/products/${pid}`);
-                  const pj = await pr.json();
-                  return [pid, pj.success ? (pj.data as Product) : null];
-                } catch {
-                  return [pid, null];
-                }
-              })
-            );
-            setProductsMap(Object.fromEntries(entries));
-          }
-        } catch (e) {
-          // Realtime auto-refresh orders
-          useRealtimeUpdates({
-            onOrderCreated: () => {
-              // Re-fetch orders
-              (async () => {
-                try {
-                  setLoadingOrders(true);
-                  const res = await fetch("/api/user/orders");
-                  const data = await res.json();
-                  if (data.success) {
-                    const list = data.data || [];
-                    const getTime = (o: any) => {
-                      const t = o?.updatedAt ?? o?.createdAt ?? 0;
-                      return new Date(t).getTime() || 0;
-                    };
-                    const sorted = [...list].sort(
-                      (a, b) => getTime(b) - getTime(a)
-                    );
-                    setOrders(sorted);
-                  }
-                } catch (e) {
-                  console.error("Realtime refresh orders error", e);
-                } finally {
-                  setLoadingOrders(false);
-                }
-              })();
-            },
-            onOrderUpdated: () => {
-              // Reuse same refresh logic
-              (async () => {
-                try {
-                  setLoadingOrders(true);
-                  const res = await fetch("/api/user/orders");
-                  const data = await res.json();
-                  if (data.success) {
-                    const list = data.data || [];
-                    const getTime = (o: any) => {
-                      const t = o?.updatedAt ?? o?.createdAt ?? 0;
-                      return new Date(t).getTime() || 0;
-                    };
-                    const sorted = [...list].sort(
-                      (a, b) => getTime(b) - getTime(a)
-                    );
-                    setOrders(sorted);
-                  }
-                } catch (e) {
-                  console.error("Realtime refresh orders error", e);
-                } finally {
-                  setLoadingOrders(false);
-                }
-              })();
-            },
-            showNotifications: false,
-          });
-
-          console.error("Fetch orders error", e);
-        } finally {
-          setLoadingOrders(false);
-        }
-      })();
+      return;
     }
-  }, [router, session?.user, status]);
+    loadOrders();
+  }, [router, session?.user, status, loadOrders]);
 
   // Show loading state
   if (status === "loading") {
@@ -226,6 +139,9 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Filters */}
+      <OrderFilters state={filters} onChange={setFilters} />
+
       {/* Orders list */}
       {loadingOrders ? (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6 text-center">
@@ -237,224 +153,26 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {orders.map((o) => {
-            const p = productsMap[o.productId as string];
-            const optionLabel = p?.options?.find(
-              (op) => op.id === o.selectedOptionId
-            )?.label;
-            const title = p?.title || "Sản phẩm không xác định";
-            const time = (o as any)?.updatedAt ?? (o as any)?.createdAt;
-            const dateStr = time ? new Date(time).toLocaleString("vi-VN") : "";
-            const statusClass = getOrderStatusBadge(o.status);
-            return (
-              <div
+          {orders
+            .filter((o) => {
+              const q = filters.q.trim().toLowerCase();
+              const statusOk =
+                filters.status === "all" || o.status === filters.status;
+              if (!statusOk) return false;
+              if (!q) return true;
+              const p = productsMap[o.productId as string];
+              const title = p?.title?.toLowerCase() || "";
+              return o.id.toLowerCase().includes(q) || title.includes(q);
+            })
+            .map((o) => (
+              <OrderCard
                 key={o.id}
-                className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-4"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Product thumbnail */}
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
-                    {p === undefined || (p === null && loadingOrders) ? (
-                      <Skeleton className="w-full h-full" />
-                    ) : p?.imageUrl ? (
-                      <Image
-                        src={p.imageUrl}
-                        alt={p.title}
-                        width={64}
-                        height={64}
-                        className="w-16 h-16 object-cover object-center"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-2xl opacity-80">
-                          {p?.imageEmoji ?? "🛍️"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Main info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        {/* Product title (clickable) */}
-                        <div className="text-sm mt-0.5">
-                          {o.productId ? (
-                            p === undefined ? (
-                              <SkeletonText width="w-40" />
-                            ) : (
-                              <Link
-                                href={`/products/${encodeURIComponent(
-                                  p!.category
-                                )}/${encodeURIComponent(slugify(p!.title))}`}
-                                className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:no-underline font-bold"
-                                aria-label={`Xem chi tiết sản phẩm ${title}`}
-                              >
-                                {title}
-                              </Link>
-                            )
-                          ) : (
-                            <span className="text-gray-500">
-                              Sản phẩm không xác định
-                            </span>
-                          )}
-                          {optionLabel && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              Tùy chọn: {optionLabel}
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Trạng thái:
-                          </div>
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full ${statusClass}`}
-                          >
-                            {getOrderStatusText(o.status)}
-                          </span>
-                          {dateStr && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              Cập nhật: {dateStr}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-sm mt-1">Mã đơn: {o.id}</div>
-                    <div className="text-md font-bold whitespace-nowrap mt-2">
-                      Tổng: {o.totalAmount?.toLocaleString("vi-VN")} ₫
-                    </div>
-                  </div>
-                </div>
-
-                {o.deliveryInfo && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-sm underline">
-                      Xem thông tin
-                    </summary>
-                    <div className="mt-2 space-y-2 text-sm">
-                      {(() => {
-                        try {
-                          const parsed = JSON.parse(o.deliveryInfo);
-                          const creds = parseCredentials(parsed);
-                          if (!creds.length) {
-                            return (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Không có thông tin hiển thị.
-                              </div>
-                            );
-                          }
-                          return (
-                            <ul className="space-y-2">
-                              {creds.map((c, idx) => (
-                                <li
-                                  key={idx}
-                                  className="p-3 rounded-md bg-gray-50 dark:bg-gray-950/40 border border-gray-200 dark:border-gray-800 space-y-3"
-                                >
-                                  <div className="space-y-2">
-                                    {/* Tài khoản */}
-                                    <div className="flex items-center gap-3">
-                                      <div className="text-gray-600 dark:text-gray-400 w-24">
-                                        Tài khoản
-                                      </div>
-                                      <div className="font-mono font-medium text-gray-900 dark:text-gray-100 break-all flex-1">
-                                        {c.user || "—"}
-                                      </div>
-                                      {c.user && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopy(c.user!)}
-                                          className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                                          title="Sao chép tài khoản"
-                                        >
-                                          <span
-                                            aria-hidden="true"
-                                            className="mr-0 sm:mr-1"
-                                          >
-                                            📋
-                                          </span>
-                                          <span className="hidden sm:inline">
-                                            Sao chép
-                                          </span>
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    {/* Mật khẩu */}
-                                    <div className="flex items-center gap-3">
-                                      <div className="text-gray-600 dark:text-gray-400 w-24">
-                                        Mật khẩu
-                                      </div>
-                                      <div className="font-mono font-medium text-gray-900 dark:text-gray-100 break-all flex-1">
-                                        {c.pass || "—"}
-                                      </div>
-                                      {c.pass && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopy(c.pass!)}
-                                          className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                                          title="Sao chép mật khẩu"
-                                        >
-                                          <span
-                                            aria-hidden="true"
-                                            className="mr-0 sm:mr-1"
-                                          >
-                                            📋
-                                          </span>
-                                          <span className="hidden sm:inline">
-                                            Sao chép
-                                          </span>
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    {/* Email */}
-                                    {c.email && (
-                                      <div className="flex items-center gap-3">
-                                        <div className="text-gray-600 dark:text-gray-400 w-24">
-                                          Email
-                                        </div>
-                                        <div className="font-mono font-medium text-gray-900 dark:text-gray-100 break-all flex-1">
-                                          {c.email}
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopy(c.email!)}
-                                          className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-                                          title="Sao chép email"
-                                        >
-                                          <span
-                                            aria-hidden="true"
-                                            className="mr-0 sm:mr-1"
-                                          >
-                                            📋
-                                          </span>
-                                          <span className="hidden sm:inline">
-                                            Sao chép
-                                          </span>
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          );
-                        } catch (e) {
-                          return (
-                            <div className="text-xs text-red-600 dark:text-red-400">
-                              Không thể đọc thông tin tài khoản.
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
-                  </details>
-                )}
-              </div>
-            );
-          })}
+                order={o}
+                product={productsMap[o.productId as string]}
+                loadingProduct={loadingOrders}
+                onCopy={handleCopy}
+              />
+            ))}
         </div>
       )}
 

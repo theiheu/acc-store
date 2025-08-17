@@ -42,9 +42,13 @@ export async function GET(request: NextRequest) {
       return (b.sold || 0) - (a.sold || 0);
     });
 
-    return NextResponse.json({
-      success: true,
-      data: products,
+    return new NextResponse(JSON.stringify({ success: true, data: products }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        // Cache at CDN for 60s, allow stale for 300s
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      },
     });
   } catch (error) {
     console.error("Get public products error:", error);

@@ -56,10 +56,17 @@ export async function GET(
       lastModifiedBy: adminProduct.lastModifiedBy,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: publicProduct,
-    });
+    return new NextResponse(
+      JSON.stringify({ success: true, data: publicProduct }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          // Cache at CDN for 60s, allow stale for 300s
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error) {
     console.error("Get product error:", error);
     return NextResponse.json(

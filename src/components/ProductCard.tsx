@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { slugify } from "@/src/utils/slug";
+import { toProductPath } from "@/src/utils/slug";
 import type { Product } from "@/src/core/products";
 import { calculateProductPrice } from "@/src/core/products";
 import { useGlobalLoading } from "./GlobalLoadingProvider";
@@ -37,9 +37,7 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link
-      href={`/products/${encodeURIComponent(
-        product.category
-      )}/${encodeURIComponent(slugify(product.title))}`}
+      href={toProductPath(product.category, product.title)}
       onClick={() => showLoading("Đang tải sản phẩm...")}
       className="group flex flex-col h-full w-full max-w-[22rem] sm:max-w-none rounded-2xl border border-gray-200/60 dark:border-gray-700/60 bg-white dark:bg-gray-900 shadow-sm hover:shadow-xl hover:shadow-gray-200/20 dark:hover:shadow-gray-900/20 overflow-hidden transition-all duration-300 hover:-translate-y-1 cursor-pointer backdrop-blur-sm"
     >

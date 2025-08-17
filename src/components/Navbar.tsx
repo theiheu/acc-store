@@ -49,7 +49,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
 
   const isHome = pathname === "/";
-  const isProducts = pathname === "/products";
+  const isProducts = pathname?.startsWith("/products");
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-950/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:dark:bg-gray-950/60 shadow-sm transition-shadow duration-200 hover:shadow-md">

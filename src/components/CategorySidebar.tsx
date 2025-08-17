@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import Link from "next/link";
 import { CATEGORIES, type CategoryId } from "@/src/core/products";
 
 export default function CategorySidebar({
@@ -74,12 +75,13 @@ export default function CategorySidebar({
           {items.map((c) => {
             const active = c.id === value;
             return (
-              <button
+              <Link
                 key={c.id}
-                ref={(el: HTMLButtonElement | null) => {
-                  buttonRefs.current[c.id] = el;
+                href={c.id === "all" ? "/products" : `/products/${c.id}`}
+                ref={(el: HTMLAnchorElement | null) => {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (buttonRefs.current as any)[c.id] = el as any;
                 }}
-                onClick={() => onChange(c.id)}
                 className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm border transition-colors snap-start ${
                   active
                     ? "bg-amber-50 text-gray-900 dark:bg-amber-300/10 dark:text-gray-100 border-amber-200 dark:border-amber-300/30"
@@ -93,7 +95,7 @@ export default function CategorySidebar({
                     {counts[c.id] ?? 0}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -112,10 +114,10 @@ export default function CategorySidebar({
           {items.map((c) => {
             const active = c.id === value;
             return (
-              <button
+              <Link
                 key={c.id}
-                onClick={() => onChange(c.id)}
-                className={`w-full text-left flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
+                href={c.id === "all" ? "/products" : `/products/${c.id}`}
+                className={`w-full inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                   active
                     ? "bg-amber-50 text-gray-900 dark:bg-amber-300/10 dark:text-gray-100 border border-amber-200 dark:border-amber-300/30"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -128,7 +130,7 @@ export default function CategorySidebar({
                     {counts[c.id] ?? 0}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
