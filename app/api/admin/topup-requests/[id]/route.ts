@@ -92,7 +92,7 @@ export async function POST(
       );
     }
 
-    if (topupRequest.status !== "Đang chờ xử lý") {
+    if (topupRequest.status !== "pending") {
       return NextResponse.json(
         {
           success: false,
@@ -120,7 +120,7 @@ export async function POST(
             {
               success: false,
               error:
-                "Approved amount must be between 10,000 and 10,000,000 VND",
+                "Số tiền duyệt phải nằm trong khoảng 10,000 ₫ đến 10,000,000 ₫",
             },
             { status: 400 }
           );

@@ -49,7 +49,15 @@ export const authOptions: NextAuthOptions = {
               registrationSource: "session",
             });
           } else {
-            dataStore.updateUser(existing.id, { lastLoginAt: new Date() });
+            // Only update lastLoginAt if it's been more than 5 minutes since last update
+            const now = new Date();
+            const lastLogin = existing.lastLoginAt || new Date(0);
+            const timeDiff = now.getTime() - lastLogin.getTime();
+            const fiveMinutes = 5 * 60 * 1000;
+
+            if (timeDiff > fiveMinutes) {
+              dataStore.updateUser(existing.id, { lastLoginAt: now });
+            }
           }
         }
       } catch (e) {

@@ -20,10 +20,7 @@ export async function GET(request: NextRequest) {
     let requests = allRequests;
 
     if (status && status !== "all") {
-      const allowed = new Set(["pending", "approved", "rejected"]);
-      if (allowed.has(status)) {
-        requests = allRequests.filter((r) => r.status === status);
-      }
+      requests = allRequests.filter((r) => r.status === status);
     }
 
     // Apply pagination

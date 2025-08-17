@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { slugify } from "@/src/utils/slug";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
@@ -9,6 +10,11 @@ import LoadingSpinner from "@/src/components/LoadingSpinner";
 import { Skeleton, SkeletonText } from "@/src/components/Skeleton";
 import type { Product } from "@/src/core/products";
 import { parseCredentials } from "@/src/utils/credentials";
+import {
+  getOrderStatusBadge,
+  getOrderStatusText,
+} from "@/src/utils/orderStatus";
+import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -18,17 +24,60 @@ export default function OrdersPage() {
     Record<string, Product | null>
   >({});
   const [loadingOrders, setLoadingOrders] = useState(true);
-  const [toast, setToast] = useState<{ msg: string; id: number } | null>(null);
+  type Toast = { id: number; msg: string; type: "success" | "info" | "error" };
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const announceRef = useRef<HTMLDivElement | null>(null);
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoadingOrders(true);
+      const res = await fetch("/api/user/orders");
+      const data = await res.json();
+      if (data.success) {
+        const list = data.data || [];
+        const getTime = (o: any) => {
+          const t = o?.updatedAt ?? o?.createdAt ?? 0;
+          return new Date(t).getTime() || 0;
+        };
+        const sorted = [...list].sort((a, b) => getTime(b) - getTime(a));
+        setOrders(sorted);
+        const uniqueProductIds = Array.from(
+          new Set(sorted.map((o: any) => o.productId).filter(Boolean))
+        );
+        const entries: Array<[string, Product | null]> = await Promise.all(
+          uniqueProductIds.map(async (pid: string) => {
+            try {
+              const pr = await fetch(`/api/products/${pid}`);
+              const pj = await pr.json();
+              return [pid, pj.success ? (pj.data as Product) : null];
+            } catch {
+              return [pid, null];
+            }
+          })
+        );
+        setProductsMap(Object.fromEntries(entries));
+      }
+    } catch (e) {
+      console.error("Fetch orders error", e);
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, []);
 
-  const showToast = (msg: string) => {
-    const id = Date.now();
-    setToast({ msg, id });
-    // Auto hide
+  // Realtime auto-refresh orders
+  useRealtimeUpdates({
+    onOrderCreated: () => loadOrders(),
+    onOrderUpdated: () => loadOrders(),
+    showNotifications: false,
+  });
+
+  const showToast = (msg: string, type: Toast["type"] = "success") => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev) => [...prev, { id, msg, type }]);
+    // Auto hide per-toast
     window.setTimeout(() => {
-      setToast((t) => (t && t.id === id ? null : t));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 1600);
-    // Announce for screen readers
+    // Announce for screen readers (read latest message)
     if (announceRef?.current) announceRef.current.textContent = msg;
   };
 
@@ -36,8 +85,10 @@ export default function OrdersPage() {
     if (!text) return;
     try {
       navigator.clipboard.writeText(text);
-      showToast("Đã sao chép!");
-    } catch {}
+      showToast("Đã sao chép!", "success");
+    } catch {
+      showToast("Sao chép thất bại", "error");
+    }
   };
 
   useEffect(() => {
@@ -76,6 +127,61 @@ export default function OrdersPage() {
             setProductsMap(Object.fromEntries(entries));
           }
         } catch (e) {
+          // Realtime auto-refresh orders
+          useRealtimeUpdates({
+            onOrderCreated: () => {
+              // Re-fetch orders
+              (async () => {
+                try {
+                  setLoadingOrders(true);
+                  const res = await fetch("/api/user/orders");
+                  const data = await res.json();
+                  if (data.success) {
+                    const list = data.data || [];
+                    const getTime = (o: any) => {
+                      const t = o?.updatedAt ?? o?.createdAt ?? 0;
+                      return new Date(t).getTime() || 0;
+                    };
+                    const sorted = [...list].sort(
+                      (a, b) => getTime(b) - getTime(a)
+                    );
+                    setOrders(sorted);
+                  }
+                } catch (e) {
+                  console.error("Realtime refresh orders error", e);
+                } finally {
+                  setLoadingOrders(false);
+                }
+              })();
+            },
+            onOrderUpdated: () => {
+              // Reuse same refresh logic
+              (async () => {
+                try {
+                  setLoadingOrders(true);
+                  const res = await fetch("/api/user/orders");
+                  const data = await res.json();
+                  if (data.success) {
+                    const list = data.data || [];
+                    const getTime = (o: any) => {
+                      const t = o?.updatedAt ?? o?.createdAt ?? 0;
+                      return new Date(t).getTime() || 0;
+                    };
+                    const sorted = [...list].sort(
+                      (a, b) => getTime(b) - getTime(a)
+                    );
+                    setOrders(sorted);
+                  }
+                } catch (e) {
+                  console.error("Realtime refresh orders error", e);
+                } finally {
+                  setLoadingOrders(false);
+                }
+              })();
+            },
+            showNotifications: false,
+          });
+
           console.error("Fetch orders error", e);
         } finally {
           setLoadingOrders(false);
@@ -139,14 +245,7 @@ export default function OrdersPage() {
             const title = p?.title || "Sản phẩm không xác định";
             const time = (o as any)?.updatedAt ?? (o as any)?.createdAt;
             const dateStr = time ? new Date(time).toLocaleString("vi-VN") : "";
-            const statusClass =
-              o.status === "Hoàn thành" || o.status === "completed"
-                ? "bg-green-100 text-green-700 dark:bg-green-300/10 dark:text-green-400"
-                : o.status === "Đang chờ xử lý" || o.status === "pending"
-                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-300/10 dark:text-yellow-400"
-                : o.status === "Đã huỷ" || o.status === "cancelled"
-                ? "bg-red-100 text-red-700 dark:bg-red-300/10 dark:text-red-400"
-                : "bg-gray-100 text-gray-700 dark:bg-gray-300/10 dark:text-gray-300";
+            const statusClass = getOrderStatusBadge(o.status);
             return (
               <div
                 key={o.id}
@@ -185,7 +284,9 @@ export default function OrdersPage() {
                               <SkeletonText width="w-40" />
                             ) : (
                               <Link
-                                href={`/products/${o.productId}`}
+                                href={`/products/${encodeURIComponent(
+                                  p!.category
+                                )}/${encodeURIComponent(slugify(p!.title))}`}
                                 className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:no-underline font-bold"
                                 aria-label={`Xem chi tiết sản phẩm ${title}`}
                               >
@@ -210,13 +311,7 @@ export default function OrdersPage() {
                           <span
                             className={`inline-flex items-center px-2 py-0.5 text-xs rounded-full ${statusClass}`}
                           >
-                            {o.status === "pending"
-                              ? "Đang chờ xử lý"
-                              : o.status === "completed"
-                              ? "Hoàn thành"
-                              : o.status === "cancelled"
-                              ? "Đã huỷ"
-                              : o.status}
+                            {getOrderStatusText(o.status)}
                           </span>
                           {dateStr && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -233,7 +328,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {o.status === "completed" && o.deliveryInfo && (
+                {o.deliveryInfo && (
                   <details className="mt-2">
                     <summary className="cursor-pointer text-sm underline">
                       Xem thông tin
@@ -393,21 +488,6 @@ export default function OrdersPage() {
           <p className="text-2xl font-semibold text-green-600 dark:text-green-400">
             0
           </p>
-
-          {/* Toast + aria-live region */}
-          <div
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-            ref={announceRef}
-          />
-          {toast && (
-            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-              <div className="rounded-md bg-gray-900 text-white text-sm px-3 py-2 shadow-lg/50 shadow-gray-900/40">
-                {toast.msg}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 text-center">
@@ -420,6 +500,45 @@ export default function OrdersPage() {
           </p>
         </div>
       </div>
+      {/* Toast + aria-live region */}
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        ref={announceRef}
+      />
+      {toasts.length > 0 && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center">
+          {toasts.map((t) => {
+            const variant =
+              t.type === "success"
+                ? "bg-green-100 text-green-800 dark:bg-green-300/10 dark:text-green-300"
+                : t.type === "info"
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-300/10 dark:text-blue-300"
+                : "bg-red-100 text-red-800 dark:bg-red-300/10 dark:text-red-300";
+            return (
+              <div
+                key={t.id}
+                className={`animate-[toast-in_200ms_ease-out] rounded-md ${variant} text-sm px-3 py-2 shadow-lg/50 shadow-gray-900/40`}
+              >
+                {t.msg}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes toast-in {
+          0% {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { slugify } from "@/src/utils/slug";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
@@ -109,7 +110,12 @@ export default function ProductDetailPage() {
   const crumbs = [
     { href: "/", label: "Trang chủ" },
     { href: "/products", label: "Sản phẩm" },
-    { href: `/products/${product.id}`, label: product.title },
+    {
+      href: `/products/${encodeURIComponent(
+        product.category
+      )}/${encodeURIComponent(slugify(product.title))}`,
+      label: product.title,
+    },
   ];
   const badge = product.badge;
   const hasThumb = Boolean(product.imageUrl);

@@ -36,9 +36,9 @@ export async function PATCH(
       );
     }
 
-    if (reqItem.status !== "Đang chờ xử lý") {
+    if (reqItem.status !== "pending") {
       return NextResponse.json(
-        { success: false, error: "Only pending requests can be Đã huỷ" },
+        { success: false, error: "Chỉ có thể hủy yêu cầu đang chờ xử lý" },
         { status: 400 }
       );
     }

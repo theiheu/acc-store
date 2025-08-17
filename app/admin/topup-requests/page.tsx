@@ -10,9 +10,13 @@ import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
-import QRCodeGenerator from "@/src/components/QRCodeGenerator";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 import { useDataSync } from "@/src/components/DataSyncProvider";
+import {
+  getStatusBadge,
+  getStatusText,
+  isStatusPending,
+} from "@/src/utils/status";
 
 function AdminTopupRequestsPageInner() {
   const [requests, setRequests] = useState<TopupRequest[]>([]);
@@ -94,36 +98,8 @@ function AdminTopupRequestsPageInner() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-
-    switch (status) {
-      case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-300/20 dark:text-yellow-300`;
-      case "approved":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-300/20 dark:text-green-300`;
-      case "rejected":
-        return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-300/20 dark:text-red-300`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-300/20 dark:text-gray-300`;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Đang chờ";
-      case "approved":
-        return "Đã duyệt";
-      case "rejected":
-        return "Từ chối";
-      default:
-        return status;
-    }
-  };
-
-  const pendingCount = requests.filter(
-    (req) => req.status === "pending"
+  const pendingCount = requests.filter((req) =>
+    isStatusPending(req.status)
   ).length;
 
   return (
@@ -278,7 +254,7 @@ function AdminTopupRequestsPageInner() {
               {
                 key: "pending",
                 label: "Đang chờ",
-                count: requests.filter((req) => req.status === "pending")
+                count: requests.filter((req) => isStatusPending(req.status))
                   .length,
               },
               {
@@ -436,34 +412,6 @@ function TopupRequestItem({
     }
   }, [approveOpen, rejectOpen]);
 
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-
-    switch (status) {
-      case "pending":
-        return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-300/20 dark:text-yellow-300`;
-      case "approved":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-300/20 dark:text-green-300`;
-      case "rejected":
-        return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-300/20 dark:text-red-300`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-300/20 dark:text-gray-300`;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Đang chờ";
-      case "approved":
-        return "Đã duyệt";
-      case "rejected":
-        return "Từ chối";
-      default:
-        return status;
-    }
-  };
-
   return (
     <div className="p-4">
       <div className="flex justify-between items-start w-full p-3 h-full bg-blue-50 dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/20 rounded mx-auto">
@@ -513,7 +461,7 @@ function TopupRequestItem({
         </div>
 
         <div className="flex items-center gap-2">
-          {request.status === "pending" && (
+          {isStatusPending(request.status) && (
             <>
               <button
                 onClick={openApproveModal}

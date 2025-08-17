@@ -18,6 +18,8 @@ interface UseRealtimeUpdatesOptions {
   onTopupRequestCreated?: (data: any) => void;
   onTopupRequestUpdated?: (data: any) => void;
   onTopupRequestProcessed?: (data: any) => void;
+  onOrderCreated?: (data: any) => void;
+  onOrderUpdated?: (data: any) => void;
   showNotifications?: boolean;
 }
 
@@ -36,6 +38,8 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
     onTopupRequestCreated,
     onTopupRequestUpdated,
     onTopupRequestProcessed,
+    onOrderCreated,
+    onOrderUpdated,
     showNotifications = false,
   } = options;
 
@@ -153,6 +157,19 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
       if (showNotifications) {
         show(`Giao dịch mới đã được tạo`, "success");
       }
+    });
+    eventSource.addEventListener("order-created", (event) => {
+      const data = JSON.parse(event.data);
+      setLastEvent({ type: "order-created", data, timestamp: data.timestamp });
+      if (onOrderCreated) onOrderCreated(data);
+      if (showNotifications) show("Đơn hàng mới được tạo", "info");
+    });
+
+    eventSource.addEventListener("order-updated", (event) => {
+      const data = JSON.parse(event.data);
+      setLastEvent({ type: "order-updated", data, timestamp: data.timestamp });
+      if (onOrderUpdated) onOrderUpdated(data);
+      if (showNotifications) show("Đơn hàng đã được cập nhật", "info");
     });
 
     eventSource.addEventListener("topup-request-created", (event) => {

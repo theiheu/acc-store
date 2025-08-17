@@ -124,6 +124,20 @@ export async function GET(request: NextRequest) {
                 "SSE: Broadcasting topup request processed:",
                 event.payload
               );
+              break;
+
+            case "ORDER_CREATED":
+              sendEvent("order-created", {
+                order: event.payload,
+                timestamp: new Date().toISOString(),
+              });
+              break;
+
+            case "ORDER_UPDATED":
+              sendEvent("order-updated", {
+                order: event.payload,
+                timestamp: new Date().toISOString(),
+              });
               sendEvent("topup-request-processed", {
                 request: event.payload,
                 timestamp: new Date().toISOString(),

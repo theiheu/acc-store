@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
+import {
+  STATUS,
+  TOPUP_MIN_AMOUNT,
+  TOPUP_MAX_AMOUNT,
+} from "@/src/core/constants";
 
 // POST /api/user/topup-request - Submit a new top-up request
 export async function POST(request: NextRequest) {
@@ -12,7 +17,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Authentication required",
+          error: "Yêu cầu đăng nhập",
         },
         { status: 401 }
       );
@@ -42,29 +47,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid amount. Amount must be a positive number.",
+          error: "Số tiền không hợp lệ. Vui lòng nhập số tiền dương.",
         },
         { status: 400 }
       );
     }
 
-    // Check minimum amount (10,000 VND)
-    if (amount < 10000) {
+    // Check min/max amount
+    if (amount < TOPUP_MIN_AMOUNT) {
       return NextResponse.json(
         {
           success: false,
-          error: "Minimum top-up amount is 10,000 VND",
+          error: "Số tiền tối thiểu là 10,000 ₫",
         },
         { status: 400 }
       );
     }
 
-    // Check maximum amount (10,000,000 VND)
-    if (amount > 10000000) {
+    if (amount > TOPUP_MAX_AMOUNT) {
       return NextResponse.json(
         {
           success: false,
-          error: "Maximum top-up amount is 10,000,000 VND",
+          error: "Số tiền tối đa là 10,000,000 ₫",
         },
         { status: 400 }
       );
@@ -73,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Check if user has pending requests. If exists, update the latest with new details and reuse it
     const pendingRequests = dataStore
       .getUserTopupRequests(user.id)
-      .filter((req) => req.status === "Đang chờ xử lý")
+      .filter((req) => req.status === STATUS.PENDING)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     if (pendingRequests.length > 0) {
@@ -106,7 +110,7 @@ export async function POST(request: NextRequest) {
       userName: user.name,
       requestedAmount: amount,
       userNotes: notes || "",
-      status: "Đang chờ xử lý",
+      status: STATUS.PENDING,
       qrCodeData,
       transferContent,
       bankInfo,

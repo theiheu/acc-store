@@ -1,17 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
+import { slugify } from "@/src/utils/slug";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useCurrentUser, useDataSync } from "@/src/components/DataSyncProvider";
-import { useAccountRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import {
+  useRealtimeUpdates,
+  useAccountRealtimeUpdates,
+} from "@/src/hooks/useRealtimeUpdates";
 import { formatCurrency } from "@/src/core/admin";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
 import TopupRequestModal from "@/src/components/TopupRequestModal";
+import {
+  getOrderStatusBadge,
+  getOrderStatusText,
+} from "@/src/utils/orderStatus";
+import { formatTransactionDescription } from "@/src/utils/transactions";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -19,13 +28,72 @@ export default function AccountPage() {
   const { show } = useToastContext();
   const { withLoading } = useGlobalLoading();
   const currentUser = useCurrentUser();
-  const { getUserTransactions, lastUpdate } = useDataSync();
+  const { getUserTransactions, getProductById, lastUpdate } = useDataSync();
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupRefreshTrigger, setTopupRefreshTrigger] = useState(0);
+  const fetchRecentTransactions = useCallback(async () => {
+    try {
+      if (!currentUser) return;
+      const res = await fetch("/api/user/transactions");
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        const list = data.data
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )
+          .slice(0, 5);
+        setTransactions(list);
+      }
+    } catch (e) {
+      setTransactions([]);
+    }
+  }, [currentUser]);
+
+  const fetchRecentOrders = useCallback(() => {
+    setLoadingOrders(true);
+    fetch(`/api/user/orders`)
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.success && Array.isArray(result.data)) {
+          const sorted = result.data
+            .sort(
+              (a: any, b: any) =>
+                new Date(
+                  (b as any).updatedAt || (b as any).createdAt
+                ).getTime() -
+                new Date((a as any).updatedAt || (a as any).createdAt).getTime()
+            )
+            .slice(0, 5);
+          setOrders(sorted);
+        } else {
+          setOrders([]);
+        }
+      })
+      .catch(() => setOrders([]))
+      .finally(() => setLoadingOrders(false));
+  }, []);
+
+  // Real-time for account: update when orders or transactions change
+  useRealtimeUpdates({
+    onTransactionCreated: () => {
+      fetchRecentTransactions();
+    },
+    onOrderCreated: () => {
+      fetchRecentOrders();
+    },
+    onOrderUpdated: () => {
+      fetchRecentOrders();
+    },
+    showNotifications: false,
+  });
 
   // Set up real-time updates for this user
   const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
+  console.log(orders);
 
   useEffect(() => {
     console.log("AccountPage: currentUser", currentUser);
@@ -37,11 +105,14 @@ export default function AccountPage() {
 
   // Update transactions when data changes
   useEffect(() => {
-    if (currentUser) {
-      const userTransactions = getUserTransactions(currentUser.id);
-      setTransactions(userTransactions.slice(0, 5)); // Show last 5 transactions
-    }
-  }, [currentUser, getUserTransactions, lastUpdate]);
+    fetchRecentTransactions();
+  }, [currentUser, lastUpdate, fetchRecentTransactions]);
+
+  // Load recent orders for current user when deps change
+  useEffect(() => {
+    if (!currentUser) return;
+    fetchRecentOrders();
+  }, [currentUser, lastUpdate, fetchRecentOrders]);
 
   async function handleSignOut() {
     try {
@@ -215,7 +286,10 @@ export default function AccountPage() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900 dark:text-gray-100">
-                          {transaction.description}
+                          {formatTransactionDescription(
+                            transaction.description,
+                            transaction.type
+                          )}
                         </p>
                         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                           <span>
@@ -223,16 +297,6 @@ export default function AccountPage() {
                               "vi-VN"
                             )}
                           </span>
-                          {transaction.adminId && (
-                            <>
-                              <span>•</span>
-                              <span className="text-blue-600 dark:text-blue-400">
-                                {transaction.metadata?.topupRequestId
-                                  ? "Theo yêu cầu"
-                                  : "Admin thực hiện"}
-                              </span>
-                            </>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -333,19 +397,88 @@ export default function AccountPage() {
               </Link>
             </div>
 
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                <span className="text-2xl">📦</span>
+            {loadingOrders ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner />
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                Chưa có đơn hàng nào
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Hãy bắt đầu mua sắm để xem đơn hàng tại đây
-              </p>
-            </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <span className="text-2xl">📦</span>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  Chưa có đơn hàng nào
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Hãy bắt đầu mua sắm để xem đơn hàng tại đây
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orders.map((o) => {
+                  console.log(`🚀 | o:`, o);
+                  return (
+                    <div
+                      key={o.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    >
+                      <div>
+                        {o.productId ? (
+                          <Link
+                            href={`/products/${encodeURIComponent(
+                              getProductById(o.productId)?.category || ""
+                            )}/${encodeURIComponent(
+                              slugify(getProductById(o.productId)?.title || "")
+                            )}`}
+                            className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                          >
+                            {
+                              (o.productTitle ||
+                                getProductById(o.productId)?.title ||
+                                "Đơn hàng") as string
+                            }
+                          </Link>
+                        ) : (
+                          <div className="font-medium">
+                            {
+                              (o.productTitle ||
+                                getProductById(o.productId)?.title ||
+                                "Đơn hàng") as string
+                            }
+                          </div>
+                        )}
+                        {o.selectedOptionLabel ? (
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            Tùy chọn: {o.selectedOptionLabel}
+                          </div>
+                        ) : null}
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {new Date(o.updatedAt || o.createdAt).toLocaleString(
+                            "vi-VN"
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-700 dark:text-gray-300">
+                          Số lượng: {o.quantity}
+                        </div>
+                        <div className="text-sm text-gray-900 dark:text-gray-100 font-semibold">
+                          Tổng: {formatCurrency(o.totalAmount)}
+                        </div>
+                        <div
+                          className={`text-xs mt-1 inline-flex items-center px-2 py-0.5 rounded-full ${getOrderStatusBadge(
+                            o.status
+                          )}`}
+                        >
+                          {getOrderStatusText(o.status)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-
           {/* Account Info */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6">
             <h3 className="text-lg font-semibold mb-4">Thông tin tài khoản</h3>

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
 
-// GET /api/user/orders - returns current user's orders
+// GET /api/user/transactions - returns current user's recent transactions
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,23 +22,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const orders = dataStore.getOrdersByUser(user.id).map((o) => {
-      const p = dataStore.getProduct(o.productId);
-      const optLabel = p?.options?.find(
-        (opt) => opt.id === o.selectedOptionId
-      )?.label;
-      return {
-        ...o,
-        productTitle: p?.title,
-        selectedOptionLabel: optLabel,
-      };
-    });
-    return NextResponse.json({ success: true, data: orders });
+    const tx = dataStore.getUserTransactions(user.id);
+    return NextResponse.json({ success: true, data: tx });
   } catch (e) {
-    console.error("List orders error:", e);
+    console.error("List transactions error:", e);
     return NextResponse.json(
       { success: false, error: "Có lỗi xảy ra" },
       { status: 500 }
     );
   }
 }
+

@@ -159,15 +159,6 @@ export default function AuthButton() {
                     </p>
                   )}
                 </div>
-                <Link
-                  href="/deposit"
-                  onClick={() => setOpen(false)}
-                  className="shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-md bg-amber-500 hover:bg-amber-600 text-white cursor-pointer transition-colors"
-                  title="Nạp tiền nhanh"
-                >
-                  <span>＋</span>
-                  Nạp tiền
-                </Link>
               </div>
             </div>
 

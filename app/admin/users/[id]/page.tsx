@@ -10,6 +10,8 @@ import { AdminUser, UserTransaction } from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
 
+import { formatTransactionDescription } from "@/src/utils/transactions";
+
 function UserDetail() {
   const router = useRouter();
   const params = useParams();
@@ -301,7 +303,10 @@ function UserDetail() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {transaction.description}
+                        {formatTransactionDescription(
+                          transaction.description,
+                          transaction.type
+                        )}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {new Date(transaction.createdAt).toLocaleString(

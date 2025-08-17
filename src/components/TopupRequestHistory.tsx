@@ -6,6 +6,11 @@ import { TopupRequest } from "@/src/core/admin";
 import QRCodeGenerator from "./QRCodeGenerator";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 import { useToastContext } from "@/src/components/ToastProvider";
+import {
+  getStatusBadge,
+  getStatusText,
+  isStatusPending,
+} from "@/src/utils/status";
 
 interface TopupRequestHistoryProps {
   refreshTrigger?: number;
@@ -89,38 +94,6 @@ export default function TopupRequestHistory({
   useEffect(() => {
     fetchRequests();
   }, [refreshTrigger]);
-
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
-
-    switch (status) {
-      case "Đang chờ xử lý":
-        return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-300/20 dark:text-yellow-300`;
-      case "approved":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-300/20 dark:text-green-300`;
-      case "rejected":
-        return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-300/20 dark:text-red-300`;
-      case "Đã huỷ":
-        return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-300/20 dark:text-gray-300`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-300/20 dark:text-gray-300`;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Đang chờ";
-      case "approved":
-        return "Đã duyệt";
-      case "rejected":
-        return "Từ chối";
-      case "Đã huỷ":
-        return "Đã hủy";
-      default:
-        return status;
-    }
-  };
 
   if (loading) {
     return (
@@ -222,24 +195,23 @@ export default function TopupRequestHistory({
                 </div>
                 <div>
                   {/* QR Code Button for Pending Requests */}
-                  {request.status === "Đang chờ xử lý" &&
-                    request.qrCodeData && (
-                      <button
-                        onClick={() =>
-                          setExpandedQR(
-                            expandedQR === request.id ? null : request.id
-                          )
-                        }
-                        className="mt-2 px-3 py-1 w-[100px] text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
-                      >
-                        {expandedQR === request.id
-                          ? "Ẩn chi tiết"
-                          : "Xem chi tiết"}
-                      </button>
-                    )}
+                  {isStatusPending(request.status) && request.qrCodeData && (
+                    <button
+                      onClick={() =>
+                        setExpandedQR(
+                          expandedQR === request.id ? null : request.id
+                        )
+                      }
+                      className="mt-2 px-3 py-1 w-[100px] text-sm bg-blue-100 dark:bg-blue-300/10 text-blue-800 dark:text-blue-200 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-300/20 transition-colors cursor-pointer"
+                    >
+                      {expandedQR === request.id
+                        ? "Ẩn chi tiết"
+                        : "Xem chi tiết"}
+                    </button>
+                  )}
 
                   {/* Cancel button for pending */}
-                  {request.status === "Đang chờ xử lý" && (
+                  {isStatusPending(request.status) && (
                     <div className="mt-3">
                       <button
                         onClick={() => cancelRequest(request.id)}
@@ -256,7 +228,7 @@ export default function TopupRequestHistory({
               </div>
 
               {/* QR Code Display */}
-              {request.status === "Đang chờ xử lý" &&
+              {isStatusPending(request.status) &&
                 request.qrCodeData &&
                 expandedQR === request.id && (
                   <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/20 rounded-lg">

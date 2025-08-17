@@ -88,11 +88,11 @@ export default function DepositPage() {
     }
 
     if (numValue < 10000) {
-      return "Số tiền tối thiểu là 10,000 VNĐ";
+      return "Số tiền tối thiểu là 10,000 ₫";
     }
 
-    if (numValue > 50000000) {
-      return "Số tiền tối đa là 50,000,000 VNĐ";
+    if (numValue > 10000000) {
+      return "Số tiền tối đa là 10,000,000 ₫";
     }
 
     return null;
@@ -154,9 +154,10 @@ export default function DepositPage() {
         setTopupRefreshTrigger((v) => v + 1);
       }, "Đang tạo mã QR và lưu yêu cầu...");
 
-      show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!");
-    } catch (error) {
-      show("Có lỗi xảy ra khi tạo yêu cầu nạp tiền");
+      show("Yêu cầu nạp tiền đã được tạo và mã QR đã sẵn sàng!", "success");
+    } catch (error: any) {
+      const msg = error?.message || "Có lỗi xảy ra khi tạo yêu cầu nạp tiền";
+      show(msg, "error");
       console.error("QR generation error:", error);
     }
   };

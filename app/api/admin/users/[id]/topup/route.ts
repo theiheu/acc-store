@@ -44,7 +44,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Amount cannot exceed 10,000,000 VND per transaction",
+          error: "Số tiền không được vượt quá 10,000,000 ₫ cho mỗi giao dịch",
         },
         { status: 400 }
       );

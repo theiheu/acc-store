@@ -36,7 +36,9 @@ type DataStoreEvent =
   | { type: "TRANSACTION_CREATED"; payload: UserTransaction }
   | { type: "TOPUP_REQUEST_CREATED"; payload: TopupRequest }
   | { type: "TOPUP_REQUEST_UPDATED"; payload: TopupRequest }
-  | { type: "TOPUP_REQUEST_PROCESSED"; payload: TopupRequest };
+  | { type: "TOPUP_REQUEST_PROCESSED"; payload: TopupRequest }
+  | { type: "ORDER_CREATED"; payload: import("./admin").Order }
+  | { type: "ORDER_UPDATED"; payload: import("./admin").Order };
 
 type EventListener = (event: DataStoreEvent) => void;
 
@@ -652,7 +654,7 @@ class DataStore {
 
   getPendingTopupRequests(): TopupRequest[] {
     return Array.from(this.topupRequests.values())
-      .filter((req) => req.status === "Đang chờ xử lý")
+      .filter((req) => req.status === "pending")
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -698,7 +700,7 @@ class DataStore {
     } = {}
   ): { request: TopupRequest | null; transaction?: UserTransaction } {
     const request = this.topupRequests.get(requestId);
-    if (!request || request.status !== "Đang chờ xử lý") {
+    if (!request || request.status !== "pending") {
       return { request: null };
     }
 
@@ -949,6 +951,7 @@ class DataStore {
 
   createOrder(order: import("./admin").Order) {
     this.orders.set(order.id, order);
+    this.emit({ type: "ORDER_CREATED", payload: order });
     this.scheduleSave();
     return order;
   }
@@ -958,6 +961,7 @@ class DataStore {
     if (!cur) return null;
     const upd = { ...cur, ...updates, updatedAt: new Date() };
     this.orders.set(id, upd);
+    this.emit({ type: "ORDER_UPDATED", payload: upd });
     this.scheduleSave();
     return upd;
   }

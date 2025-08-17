@@ -3,7 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
 import { TapHoaMMOClient, parseCredential } from "@/src/services/taphoammo";
+import { ORDER_STATUS } from "@/src/core/constants";
 import type { Order } from "@/src/core/admin";
+
+// Helper response utilities for consistency
+function ok<T>(data: T, init?: ResponseInit) {
+  return NextResponse.json({ success: true, data }, init);
+}
+function err(message: string, status = 400, extra?: Record<string, any>) {
+  return NextResponse.json(
+    { success: false, error: message, ...(extra || {}) },
+    { status }
+  );
+}
 
 // POST /api/orders
 // Body: { productId: string, quantity: number, promotion?: string }
@@ -12,18 +24,12 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: "Cần đăng nhập" },
-        { status: 401 }
-      );
+      return err("Cần đăng nhập", 401);
     }
 
     const user = dataStore.getUserByEmail(session.user.email);
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Không tìm thấy người dùng" },
-        { status: 400 }
-      );
+      return err("Không tìm thấy người dùng", 400);
     }
 
     const {
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
       quantity,
       unitPrice,
       totalAmount,
-      status: "Đang chờ xử lý",
+      status: ORDER_STATUS.PENDING,
       createdAt: new Date(),
       updatedAt: new Date(),
       selectedOptionId: selectedOption?.id,
@@ -143,7 +149,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       type: "purchase",
       amount: -totalAmount,
-      description: `Mua sản phẩm ${product.title} x${quantity}`,
+      description: `${product.title} x${quantity}`,
       orderId: order.id,
       metadata: { productId, quantity },
     });
@@ -168,7 +174,7 @@ export async function POST(request: NextRequest) {
         (buyResp && buyResp.description) ||
         "Không thể đặt hàng từ nhà cung cấp";
       dataStore.updateOrder(order.id, {
-        status: "Đã huỷ",
+        status: ORDER_STATUS.CANCELLED,
         updatedAt: new Date(),
       });
       // Refund
@@ -215,7 +221,7 @@ export async function POST(request: NextRequest) {
       // Mark still pending so admin can investigate
       return NextResponse.json({
         success: true,
-        data: { orderId: order.id, status: "Đang chờ xử lý" },
+        data: { orderId: order.id, status: ORDER_STATUS.PENDING },
       });
     }
 
@@ -224,7 +230,7 @@ export async function POST(request: NextRequest) {
     const deliveryInfo = JSON.stringify(parsed);
 
     dataStore.updateOrder(order.id, {
-      status: "Hoàn thành",
+      status: ORDER_STATUS.COMPLETED,
       updatedAt: new Date(),
       completedAt: new Date(),
       deliveryInfo,
@@ -263,6 +269,45 @@ export async function POST(request: NextRequest) {
     console.error("Create order error:", error);
     return NextResponse.json(
       { success: false, error: "Có lỗi xảy ra khi tạo đơn hàng" },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/orders?userId=...
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "Thiếu userId" },
+        { status: 400 }
+      );
+    }
+
+    const user = dataStore.getUser(userId);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Không tìm thấy người dùng" },
+        { status: 404 }
+      );
+    }
+
+    const orders = dataStore
+      .getOrdersByUser(userId)
+      .sort(
+        (a, b) =>
+          new Date((b as any).updatedAt || (b as any).createdAt).getTime() -
+          new Date((a as any).updatedAt || (a as any).createdAt).getTime()
+      );
+
+    return NextResponse.json({ success: true, data: orders });
+  } catch (error) {
+    console.error("GET /api/orders error:", error);
+    return NextResponse.json(
+      { success: false, error: "Lỗi tải đơn hàng" },
       { status: 500 }
     );
   }
