@@ -27,6 +27,12 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastHeartbeatAtRef = useRef<number>(Date.now());
+  const backoffRef = useRef<number>(1000); // start 1s
+  const destroyedRef = useRef<boolean>(false);
+
   const { show } = useToastContext();
 
   const {
@@ -44,209 +50,226 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
   } = options;
 
   useEffect(() => {
-    // Only run on client side
     if (typeof window === "undefined") return;
+    destroyedRef.current = false;
 
-    // Create EventSource connection
-    const eventSource = new EventSource("/api/events");
-    eventSourceRef.current = eventSource;
-
-    // Handle connection open
-    eventSource.onopen = () => {
-      setIsConnected(true);
-      console.log("Real-time connection established");
-    };
-
-    // Handle connection error
-    eventSource.onerror = (error) => {
-      setIsConnected(false);
-      console.error("Real-time connection error:", error);
-
-      // Attempt to reconnect after a delay
-      setTimeout(() => {
-        if (eventSourceRef.current?.readyState === EventSource.CLOSED) {
-          console.log("Attempting to reconnect...");
-          // The useEffect will handle reconnection when component re-renders
-        }
-      }, 5000);
-    };
-
-    // Handle specific events
-    eventSource.addEventListener("connected", (event) => {
-      const data = JSON.parse(event.data);
-      console.log("Connected to real-time updates:", data.message);
-    });
-
-    eventSource.addEventListener("user-updated", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({ type: "user-updated", data, timestamp: data.timestamp });
-
-      if (onUserUpdated) {
-        onUserUpdated(data);
-      }
-
-      if (showNotifications) {
-        show(`Thông tin người dùng đã được cập nhật`, "info");
-      }
-    });
-
-    eventSource.addEventListener("balance-updated", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "balance-updated",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onBalanceUpdated) {
-        onBalanceUpdated(data);
-      }
-
-      if (showNotifications) {
-        show(`Số dư tài khoản đã được cập nhật`, "success");
-      }
-    });
-
-    eventSource.addEventListener("product-updated", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "product-updated",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onProductUpdated) {
-        onProductUpdated(data);
-      }
-
-      if (showNotifications) {
-        const action = data.type === "PRODUCT_CREATED" ? "thêm" : "cập nhật";
-        show(`Sản phẩm đã được ${action}`, "info");
-      }
-    });
-
-    eventSource.addEventListener("product-deleted", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "product-deleted",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onProductDeleted) {
-        onProductDeleted(data);
-      }
-
-      if (showNotifications) {
-        show(`Sản phẩm đã được xóa`, "info");
-      }
-    });
-
-    eventSource.addEventListener("transaction-created", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "transaction-created",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onTransactionCreated) {
-        onTransactionCreated(data);
-      }
-
-      if (showNotifications) {
-        show(`Giao dịch mới đã được tạo`, "success");
-      }
-    });
-    eventSource.addEventListener("order-created", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({ type: "order-created", data, timestamp: data.timestamp });
-      if (onOrderCreated) onOrderCreated(data);
-      if (showNotifications) show("Đơn hàng mới được tạo", "info");
-    });
-
-    eventSource.addEventListener("order-updated", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({ type: "order-updated", data, timestamp: data.timestamp });
-      if (onOrderUpdated) onOrderUpdated(data);
-      if (showNotifications) show("Đơn hàng đã được cập nhật", "info");
-    });
-
-    eventSource.addEventListener("topup-request-created", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "topup-request-created",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onTopupRequestCreated) {
-        onTopupRequestCreated(data);
-      }
-
-      if (showNotifications) {
-        show(`Yêu cầu nạp tiền mới đã được tạo`, "info");
-      }
-    });
-
-    eventSource.addEventListener("topup-request-updated", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "topup-request-updated",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onTopupRequestUpdated) {
-        onTopupRequestUpdated(data);
-      }
-    });
-
-    eventSource.addEventListener("topup-request-processed", (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent({
-        type: "topup-request-processed",
-        data,
-        timestamp: data.timestamp,
-      });
-
-      if (onTopupRequestProcessed) {
-        onTopupRequestProcessed(data);
-      }
-
-      if (showNotifications) {
-        const status =
-          data.request.status === "approved"
-            ? "đã được duyệt"
-            : "đã bị từ chối";
-        show(
-          `Yêu cầu nạp tiền ${status}`,
-          data.request.status === "approved" ? "success" : "error"
-        );
-      }
-    });
-
-    eventSource.addEventListener("heartbeat", (event) => {
-      // Just keep the connection alive, no action needed
-      console.debug("Heartbeat received");
-    });
-
-    // Cleanup on unmount
-    return () => {
+    function cleanup() {
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+    }
+
+    function scheduleReconnect() {
+      if (destroyedRef.current) return;
+      const delay = backoffRef.current;
+      backoffRef.current = Math.min(backoffRef.current * 2, 30000); // max 30s
+      reconnectTimerRef.current = setTimeout(() => {
+        if (!destroyedRef.current) init();
+      }, delay);
+    }
+
+    function startHeartbeatMonitor() {
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = setInterval(() => {
+        const since = Date.now() - lastHeartbeatAtRef.current;
+        if (since > 15000) {
+          // No heartbeat for > 15s -> reconnect
+          setIsConnected(false);
+          cleanup();
+          scheduleReconnect();
+        }
+      }, 5000);
+    }
+
+    function init() {
+      cleanup();
+      try {
+        const es = new EventSource("/api/events");
+        eventSourceRef.current = es;
+
+        es.onopen = () => {
+          setIsConnected(true);
+          backoffRef.current = 1000; // reset backoff
+          lastHeartbeatAtRef.current = Date.now();
+          startHeartbeatMonitor();
+          console.log("Real-time connection established");
+        };
+
+        es.onerror = (error) => {
+          setIsConnected(false);
+          console.error("Real-time connection error:", error);
+          cleanup();
+          scheduleReconnect();
+        };
+
+        // Batching events to reduce state updates
+        let queue: Array<{ type: string; data: any }> = [];
+        let flushTimer: ReturnType<typeof setTimeout> | null = null;
+        function enqueue(type: string, data: any) {
+          queue.push({ type, data });
+          if (!flushTimer) {
+            flushTimer = setTimeout(() => {
+              const batch = queue;
+              queue = [];
+              flushTimer = null;
+              batch.forEach(({ type, data }) => handleEvent(type, data));
+            }, 16); // ~ one frame
+          }
+        }
+
+        function handleEvent(type: string, data: any) {
+          setLastEvent({
+            type,
+            data,
+            timestamp: data.timestamp || new Date().toISOString(),
+          });
+          switch (type) {
+            case "user-updated":
+              onUserUpdated?.(data);
+              if (showNotifications)
+                show("Thông tin người dùng đã được cập nhật");
+              break;
+            case "balance-updated":
+              onBalanceUpdated?.(data);
+              if (showNotifications) show("Số dư tài khoản đã được cập nhật");
+              break;
+            case "product-updated":
+              onProductUpdated?.(data);
+              if (showNotifications)
+                show(
+                  `Sản phẩm đã được ${
+                    data.type === "PRODUCT_CREATED" ? "thêm" : "cập nhật"
+                  }`
+                );
+              break;
+            case "product-deleted":
+              onProductDeleted?.(data);
+              if (showNotifications) show("Sản phẩm đã được xóa");
+              break;
+            case "transaction-created":
+              onTransactionCreated?.(data);
+              if (showNotifications) show("Giao dịch mới đã được tạo");
+              break;
+            case "order-created":
+              onOrderCreated?.(data);
+              if (showNotifications) show("Đơn hàng mới được tạo");
+              break;
+            case "order-updated":
+              onOrderUpdated?.(data);
+              if (showNotifications) show("Đơn hàng đã được cập nhật");
+              break;
+            case "topup-request-created":
+              onTopupRequestCreated?.(data);
+              if (showNotifications) show("Yêu cầu nạp tiền mới đã được tạo");
+              break;
+            case "topup-request-updated":
+              onTopupRequestUpdated?.(data);
+              break;
+            case "topup-request-processed":
+              onTopupRequestProcessed?.(data);
+              if (showNotifications) {
+                const status =
+                  data.request.status === "approved"
+                    ? "đã được duyệt"
+                    : "đã bị từ chối";
+                show(`Yêu cầu nạp tiền ${status}`);
+              }
+              break;
+            case "heartbeat":
+              lastHeartbeatAtRef.current = Date.now();
+              break;
+          }
+        }
+
+        es.addEventListener("connected", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("connected", data);
+        });
+        es.addEventListener("user-updated", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("user-updated", data);
+        });
+        es.addEventListener("balance-updated", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("balance-updated", data);
+        });
+        es.addEventListener("product-updated", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("product-updated", data);
+        });
+        es.addEventListener("product-deleted", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("product-deleted", data);
+        });
+        es.addEventListener("transaction-created", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("transaction-created", data);
+        });
+        es.addEventListener("order-created", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("order-created", data);
+        });
+        es.addEventListener("order-updated", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("order-updated", data);
+        });
+        es.addEventListener("topup-request-created", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("topup-request-created", data);
+        });
+        es.addEventListener("topup-request-updated", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("topup-request-updated", data);
+        });
+        es.addEventListener("topup-request-processed", (event) => {
+          const data = JSON.parse((event as MessageEvent).data);
+          enqueue("topup-request-processed", data);
+        });
+        es.addEventListener("heartbeat", () => {
+          enqueue("heartbeat", {});
+        });
+      } catch (e) {
+        console.error("Failed to init EventSource", e);
+        scheduleReconnect();
+      }
+    }
+
+    init();
+
+    return () => {
+      destroyedRef.current = true;
+      cleanup();
       setIsConnected(false);
     };
-  }, []); // Empty dependency array to run once on mount
+  }, [
+    show,
+    onUserUpdated,
+    onBalanceUpdated,
+    onProductUpdated,
+    onProductDeleted,
+    onTransactionCreated,
+    onTopupRequestCreated,
+    onTopupRequestUpdated,
+    onTopupRequestProcessed,
+    onOrderCreated,
+    onOrderUpdated,
+    showNotifications,
+  ]);
 
-  // Manual reconnect function
   const reconnect = () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-    // The useEffect will handle creating a new connection
     setIsConnected(false);
   };
 
@@ -263,46 +286,37 @@ export function useAccountRealtimeUpdates(currentUserId?: string) {
 
   return useRealtimeUpdates({
     onBalanceUpdated: (data) => {
-      // Only show notification if it's for the current user
       if (currentUserId && data.userId === currentUserId) {
         show(
           `Số dư của bạn đã được cập nhật: ${data.newBalance.toLocaleString(
             "vi-VN"
-          )} ₫`,
-          "success"
+          )} ₫`
         );
       }
     },
     onTransactionCreated: (data) => {
-      // Only show notification if it's for the current user
       if (currentUserId && data.transaction.userId === currentUserId) {
         const type =
           data.transaction.type === "credit" ? "Nạp tiền" : "Giao dịch";
-        show(`${type}: ${data.transaction.description}`, "info");
+        show(`${type}: ${data.transaction.description}`);
       }
     },
-    showNotifications: false, // We handle notifications manually above
+    showNotifications: false,
   });
 }
 
-// Hook for admin dashboard real-time updates
 export function useAdminRealtimeUpdates() {
-  return useRealtimeUpdates({
-    showNotifications: true, // Show all notifications for admins
-  });
+  return useRealtimeUpdates({ showNotifications: true });
 }
 
-// Hook for product pages real-time updates
 export function useProductRealtimeUpdates() {
   return useRealtimeUpdates({
     onProductUpdated: (data) => {
-      // Could trigger a refresh of product data
       console.log("Product updated:", data);
     },
     onProductDeleted: (data) => {
-      // Could remove product from current view
       console.log("Product deleted:", data);
     },
-    showNotifications: false, // Don't show notifications on public pages
+    showNotifications: false,
   });
 }

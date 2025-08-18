@@ -8,6 +8,7 @@ import { useGlobalLoading } from "./GlobalLoadingProvider";
 import { useToastContext } from "./ToastProvider";
 import AdminSidebar from "./AdminSidebar";
 import LoadingSpinner from "./LoadingSpinner";
+import { useAdminRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,10 +16,10 @@ interface AdminLayoutProps {
   description?: string;
 }
 
-export default function AdminLayout({ 
-  children, 
+export default function AdminLayout({
+  children,
   title = "Admin Dashboard",
-  description 
+  description,
 }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { data: session } = useSession();
@@ -26,6 +27,7 @@ export default function AdminLayout({
   const { withLoading } = useGlobalLoading();
   const { show } = useToastContext();
   const router = useRouter();
+  const { isConnected } = useAdminRealtimeUpdates();
 
   async function handleSignOut() {
     try {
@@ -83,9 +85,9 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
       {/* Sidebar */}
-      <AdminSidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
+      <AdminSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main content */}
@@ -117,6 +119,27 @@ export default function AdminLayout({
 
           {/* Right side */}
           <div className="flex items-center gap-4">
+            {/* Realtime connection indicator */}
+            <div
+              className={`hidden sm:flex items-center gap-2 px-2 py-1 rounded-full text-xs ${
+                isConnected
+                  ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+              }`}
+              title={
+                isConnected
+                  ? "Kết nối thời gian thực đang hoạt động"
+                  : "Mất kết nối thời gian thực"
+              }
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isConnected ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                }`}
+              />
+              <span>{isConnected ? "Realtime ON" : "Realtime OFF"}</span>
+            </div>
+
             {/* Notifications */}
             <button className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 relative">
               <span className="text-xl">🔔</span>
@@ -147,7 +170,7 @@ export default function AdminLayout({
                     {adminProfile?.email}
                   </p>
                 </div>
-                
+
                 <div className="p-1">
                   <a
                     href="/account"
@@ -156,7 +179,7 @@ export default function AdminLayout({
                     <span>👤</span>
                     Tài khoản cá nhân
                   </a>
-                  
+
                   <button
                     onClick={handleSignOut}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-300/10 rounded-md"
@@ -171,9 +194,7 @@ export default function AdminLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 p-4 lg:p-6 overflow-auto">{children}</main>
       </div>
     </div>
   );

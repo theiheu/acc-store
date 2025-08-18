@@ -1,84 +1,190 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
 import { useDashboardStats } from "@/src/components/DataSyncProvider";
 import { DashboardStats } from "@/src/core/admin";
-import { formatCurrency } from "@/src/core/admin";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import StatsGrid from "@/src/components/admin/StatsGrid";
+import QuickActions from "@/src/components/admin/QuickActions";
+import SectionSkeleton from "@/src/components/admin/SectionSkeleton";
+import DashboardErrorBoundary from "@/src/components/admin/DashboardErrorBoundary";
+
+const TopSellingProducts = dynamic(
+  () => import("@/src/components/admin/TopSellingProducts"),
+  {
+    ssr: false,
+    loading: () => <SectionSkeleton className="h-48" />,
+  }
+);
+const RecentUsers = dynamic(
+  () => import("@/src/components/admin/RecentUsers"),
+  {
+    ssr: false,
+    loading: () => <SectionSkeleton className="h-48" />,
+  }
+);
+const RecentActivity = dynamic(
+  () => import("@/src/components/admin/RecentActivity"),
+  {
+    ssr: false,
+    loading: () => <SectionSkeleton className="h-48" />,
+  }
+);
 
 function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { show } = useToastContext();
   const realtimeStats = useDashboardStats(); // Get real-time stats
 
-  useEffect(() => {
-    fetchDashboardStats();
+  // Simple TTL cache (15s) + in-flight dedupe
+  const cacheRef = useRef<{ at: number; data: DashboardStats } | null>(null);
+  const inflightRef = useRef<Promise<DashboardStats | null> | null>(null);
+
+  const getDashboardCached = useCallback(
+    async (ac: AbortController): Promise<DashboardStats | null> => {
+      const now = Date.now();
+      if (cacheRef.current && now - cacheRef.current.at < 15000)
+        return cacheRef.current.data;
+      if (inflightRef.current) return inflightRef.current;
+
+      inflightRef.current = fetch("/api/admin/dashboard", { signal: ac.signal })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          const ct = res.headers.get("content-type");
+          if (!ct || !ct.includes("application/json"))
+            throw new Error("Invalid content-type");
+          const body = await res.json();
+          if (body?.success) {
+            cacheRef.current = { at: Date.now(), data: body.data };
+            return body.data as DashboardStats;
+          }
+          throw new Error(body?.error || "Unknown error");
+        })
+        .catch((e: any) => {
+          // Check if the request was aborted
+          if (ac.signal.aborted) return null;
+
+          const msg = String(e?.message || e);
+          const isAbortError =
+            e?.name === "AbortError" ||
+            msg.includes("AbortError") ||
+            msg.includes("aborted") ||
+            msg.includes("signal is aborted");
+
+          if (isAbortError) {
+            // Silently handle abort errors - they're expected in development
+            return null;
+          }
+
+          console.error("Dashboard fetch error:", e);
+          throw e; // Re-throw to be caught by useEffect
+        })
+        .finally(() => {
+          inflightRef.current = null;
+        });
+
+      return inflightRef.current;
+    },
+    [] // Remove measureApiCall dependency to prevent infinite loops
+  );
+
+  const handleRetry = useCallback(() => {
+    setRetryCount((prev) => prev + 1);
+    setError(null);
+    setStats(null);
   }, []);
 
-  async function fetchDashboardStats() {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/admin/dashboard");
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getDashboardCached(ac);
+        if (data) {
+          setStats(data);
+        } else {
+          setError("Không thể tải dữ liệu từ API");
+        }
+      } catch (e: any) {
+        // Don't show errors for aborted requests
+        const isAbortError =
+          e?.name === "AbortError" ||
+          e?.message?.includes("aborted") ||
+          e?.message?.includes("signal is aborted");
 
-      // Check if response is ok
-      if (!response.ok) {
-        console.error(
-          "Dashboard API response not ok:",
-          response.status,
-          response.statusText
-        );
-        show(`Lỗi API: ${response.status} ${response.statusText}`);
-        return;
+        if (!isAbortError) {
+          console.error("Fetch dashboard stats error:", e);
+          setError("Có lỗi xảy ra khi tải dữ liệu");
+          show("Có lỗi xảy ra khi tải dữ liệu");
+        }
+      } finally {
+        setLoading(false);
       }
+    })();
+    return () => ac.abort();
+  }, [retryCount]); // Remove show and getDashboardCached to prevent infinite loops
 
-      // Check content type
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error("Dashboard API returned non-JSON response:", contentType);
-        const text = await response.text();
-        console.error("Response body:", text.substring(0, 500));
-        show("API trả về dữ liệu không hợp lệ");
-        return;
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setStats(result.data);
-      } else {
-        console.error("Dashboard API returned error:", result.error);
-        show(result.error || "Không thể tải dữ liệu dashboard");
-      }
-    } catch (error) {
-      console.error("Fetch dashboard stats error:", error);
-      show("Có lỗi xảy ra khi tải dữ liệu");
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Memoize mapped recent users to prevent unnecessary re-renders
+  const mappedRecentUsers = useMemo(
+    () =>
+      (realtimeStats.recentUsers || []).map((u: any) => ({
+        id: u.id,
+        name: u.name || u.email,
+        email: u.email,
+        status: (u as any).status || "active",
+        createdAt: (u as any).createdAt || Date.now(),
+      })),
+    [realtimeStats.recentUsers]
+  );
 
   if (loading) {
     return (
       <AdminLayout title="Tổng quan" description="Dashboard quản trị hệ thống">
-        <div className="flex items-center justify-center h-64">
-          <LoadingSpinner size="lg" />
+        <div className="space-y-6">
+          <SectionSkeleton className="h-28" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <SectionSkeleton className="h-64" />
+            <SectionSkeleton className="h-64" />
+            <SectionSkeleton className="h-64 lg:col-span-2" />
+          </div>
         </div>
       </AdminLayout>
     );
   }
 
   if (!stats) {
+    // Fallback to realtime snapshot from DataSync when API fails
     return (
       <AdminLayout title="Tổng quan" description="Dashboard quản trị hệ thống">
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">
-            Không thể tải dữ liệu dashboard
-          </p>
+        <div className="space-y-6" role="main" aria-label="Dashboard quản trị">
+          <StatsGrid stats={realtimeStats} realtimeStats={realtimeStats} />
+          <QuickActions pendingOrders={realtimeStats.pendingOrders} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TopSellingProducts items={realtimeStats.topSellingProducts} />
+            <RecentUsers items={mappedRecentUsers} isRealtime={true} />
+            <RecentActivity items={realtimeStats.recentActivity} />
+          </div>
+          {error && (
+            <div className="text-center" role="alert" aria-live="polite">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                {error}. Đang hiển thị dữ liệu realtime tại chỗ.
+              </p>
+              <button
+                onClick={handleRetry}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-amber-300 text-gray-900 hover:bg-amber-400 focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 rounded-lg transition-colors"
+                aria-label="Thử lại tải dữ liệu dashboard"
+              >
+                🔄 <span>Thử lại</span>
+              </button>
+            </div>
+          )}
         </div>
       </AdminLayout>
     );
@@ -86,286 +192,30 @@ function AdminDashboard() {
 
   return (
     <AdminLayout title="Tổng quan" description="Dashboard quản trị hệ thống">
-      <div className="space-y-6">
+      <div className="space-y-6" role="main" aria-label="Dashboard quản trị">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Tổng người dùng
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {(
-                    stats?.totalUsers || realtimeStats.totalUsers
-                  ).toLocaleString()}
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  {stats?.activeUsers || realtimeStats.activeUsers} hoạt động
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-300/10 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">👥</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Sản phẩm
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats?.totalProducts || realtimeStats.totalProducts}
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400">
-                  {stats?.activeProducts || realtimeStats.activeProducts} đang
-                  bán
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-300/10 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">📦</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Đơn hàng
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {stats.totalOrders.toLocaleString()}
-                </p>
-                <p className="text-xs text-orange-600 dark:text-orange-400">
-                  {stats.pendingOrders} chờ xử lý
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-300/10 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">🛒</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Doanh thu tháng
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {formatCurrency(stats.monthlyRevenue)}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  TB: {formatCurrency(stats.averageOrderValue)}/đơn
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-300/10 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">💰</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardErrorBoundary>
+          <StatsGrid stats={stats} realtimeStats={realtimeStats} />
+        </DashboardErrorBoundary>
 
         {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-            Thao tác nhanh
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <a
-              href="/admin/products"
-              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-2xl">➕</span>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  Thêm sản phẩm
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Tạo sản phẩm mới
-                </p>
-              </div>
-            </a>
-
-            <a
-              href="/admin/users"
-              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-2xl">👤</span>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  Quản lý user
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Xem danh sách user
-                </p>
-              </div>
-            </a>
-
-            <a
-              href="/admin/orders"
-              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-2xl">📋</span>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  Xử lý đơn hàng
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {stats.pendingOrders} đơn chờ
-                </p>
-              </div>
-            </a>
-
-            <a
-              href="/admin/analytics"
-              className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-2xl">📊</span>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  Xem báo cáo
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Thống kê chi tiết
-                </p>
-              </div>
-            </a>
-          </div>
-        </div>
+        <DashboardErrorBoundary>
+          <QuickActions pendingOrders={stats.pendingOrders} />
+        </DashboardErrorBoundary>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Selling Products */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Sản phẩm bán chạy
-            </h3>
-            <div className="space-y-3">
-              {stats.topSellingProducts.map((product, index) => (
-                <div
-                  key={product.productId}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-amber-100 dark:bg-amber-300/10 rounded-lg flex items-center justify-center">
-                      <span className="text-sm font-bold text-amber-800 dark:text-amber-200">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                        {product.productTitle}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {product.salesCount} đã bán
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {formatCurrency(product.revenue)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Users */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Người dùng mới
-              </h3>
-              <div
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs ${
-                  realtimeStats
-                    ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    realtimeStats ? "bg-green-500 animate-pulse" : "bg-gray-400"
-                  }`}
-                ></div>
-                {realtimeStats ? "Cập nhật tự động" : "Mất kết nối"}
-              </div>
-            </div>
-            <div className="space-y-3">
-              {realtimeStats.recentUsers?.slice(0, 5).map((user) => (
-                <div
-                  key={user.id}
-                  className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-300/10 rounded-full flex items-center justify-center">
-                      <span className="text-lg">👤</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                        {user.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.email}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        user.status === "active"
-                          ? "bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200"
-                          : "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-800 dark:text-yellow-200"
-                      }`}
-                    >
-                      {user.status === "active" ? "Hoạt động" : "Tạm khóa"}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {new Date(user.createdAt).toLocaleDateString("vi-VN")}
-                    </p>
-                  </div>
-                </div>
-              )) || (
-                <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                  Chưa có người dùng mới
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Hoạt động gần đây
-            </h3>
-            <div className="space-y-3">
-              {stats.recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm">
-                      {activity.targetType === "user"
-                        ? "👤"
-                        : activity.targetType === "product"
-                        ? "📦"
-                        : activity.targetType === "order"
-                        ? "🛒"
-                        : "⚙️"}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900 dark:text-gray-100">
-                      {activity.description}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(activity.createdAt).toLocaleString("vi-VN")}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <DashboardErrorBoundary>
+            <TopSellingProducts items={stats.topSellingProducts} />
+          </DashboardErrorBoundary>
+          <DashboardErrorBoundary>
+            <RecentUsers
+              items={mappedRecentUsers}
+              isRealtime={!!realtimeStats}
+            />
+          </DashboardErrorBoundary>
+          <DashboardErrorBoundary>
+            <RecentActivity items={stats.recentActivity} />
+          </DashboardErrorBoundary>
         </div>
       </div>
     </AdminLayout>

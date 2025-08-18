@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/src/core/admin-auth";
-import { DashboardStats, ActivityLog } from "@/src/core/admin";
+import { DashboardStats } from "@/src/core/admin";
 import { dataStore } from "@/src/core/data-store";
 
 export async function GET(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
         productId: product.id,
         productTitle: product.title,
         salesCount: product.sold || 0,
-        revenue: (product.sold || 0) * product.price,
+        revenue: (product.sold || 0) * ((product as any).price ?? 0),
       }));
 
     // Get real activity data from data store

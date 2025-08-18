@@ -72,7 +72,9 @@ export default function ProductInfoTabs({
           return (
             <button
               key={t.id}
-              ref={(el) => (tabsRef.current[i] = el)}
+              ref={(el) => {
+                tabsRef.current[i] = el;
+              }}
               role="tab"
               id={`tab-${t.id}`}
               aria-controls={`panel-${t.id}`}

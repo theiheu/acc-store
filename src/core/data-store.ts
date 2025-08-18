@@ -40,7 +40,10 @@ type DataStoreEvent =
   | { type: "TOPUP_REQUEST_UPDATED"; payload: TopupRequest }
   | { type: "TOPUP_REQUEST_PROCESSED"; payload: TopupRequest }
   | { type: "ORDER_CREATED"; payload: import("./admin").Order }
-  | { type: "ORDER_UPDATED"; payload: import("./admin").Order };
+  | { type: "ORDER_UPDATED"; payload: import("./admin").Order }
+  | { type: "CATEGORY_CREATED"; payload: import("./categories").Category }
+  | { type: "CATEGORY_UPDATED"; payload: import("./categories").Category }
+  | { type: "CATEGORY_DELETED"; payload: import("./categories").Category };
 
 type EventListener = (event: DataStoreEvent) => void;
 
@@ -836,9 +839,9 @@ class DataStore {
     const changes = [];
     if (updates.price !== undefined && updates.price !== product.price) {
       changes.push(
-        `giá từ ${product.price.toLocaleString(
-          "vi-VN"
-        )} ₫ thành ${updates.price.toLocaleString("vi-VN")} ₫`
+        `giá từ ${(product.price ?? 0).toLocaleString("vi-VN")} ₫ thành ${(
+          updates.price ?? 0
+        ).toLocaleString("vi-VN")} ₫`
       );
     }
     if (updates.stock !== undefined && updates.stock !== product.stock) {
@@ -1228,7 +1231,7 @@ class DataStore {
         productId: product.id,
         productTitle: product.title,
         salesCount: product.sold,
-        revenue: product.sold * product.price,
+        revenue: product.sold * (product.price ?? 0),
       }));
 
     return {

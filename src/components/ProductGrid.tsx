@@ -3,7 +3,7 @@
 import { memo, useMemo } from "react";
 import type { Product } from "@/src/core/products";
 import ProductCard from "./ProductCard";
-import ProductCardSkeleton from "./ProductCardSkeleton";
+// import ProductCardSkeleton from "./ProductCardSkeleton";
 
 interface ProductGridProps {
   products: Product[];
@@ -56,5 +56,17 @@ const ProductGrid = memo(function ProductGrid({
     </div>
   );
 });
+
+interface ProductCardSkeletonProps {
+  className?: string;
+}
+
+const ProductCardSkeleton = ({ className = "" }: ProductCardSkeletonProps) => {
+  return (
+    <div
+      className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg h-64 w-full ${className}`}
+    />
+  );
+};
 
 export default ProductGrid;

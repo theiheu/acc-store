@@ -12,6 +12,7 @@ import {
   useCategorySearch,
 } from "@/src/hooks/useCategories";
 import { Category } from "@/src/services/CategoryService";
+import FeaturedProductsSelector from "@/src/components/FeaturedProductsSelector";
 
 function AdminCategoriesPage() {
   const { show } = useToastContext();
@@ -222,7 +223,7 @@ function AdminCategoriesPage() {
                       {c.isActive ? "Hoạt động" : "Tạm dừng"}
                     </span>
                   </td>
-                  <td className="p-3">{c.productCount ?? 0}</td>
+                  <td className="p-3">0</td>
                   <td className="p-3">
                     <div className="flex gap-3">
                       <AdminPermissionGate permission="canManageCategories">
