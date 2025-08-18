@@ -1,26 +1,20 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { CATEGORIES, type CategoryId } from "@/src/core/products";
+import { useCategoryItems } from "@/src/hooks/useCategories";
 
 export default function CategorySidebar({
   value,
   onChange,
   counts,
 }: {
-  value: CategoryId;
-  onChange: (c: CategoryId) => void;
-  counts?: Record<CategoryId, number>;
+  value: string; // slug or "all"
+  onChange: (c: string) => void;
+  counts?: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
-
-  const items = useMemo(
-    () => [{ id: "all", label: "Tất cả sản phẩm", icon: "🛍️" }, ...CATEGORIES],
-    []
-  ) as { id: CategoryId; label: string; icon: string }[];
-
-  const activeItem = items.find((i) => i.id === value);
+  const { items } = useCategoryItems();
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -67,7 +61,7 @@ export default function CategorySidebar({
   return (
     <aside className="md:w-64">
       {/* Mobile: horizontal pills, sticky */}
-      <div className="md:hidden sticky top-16 z-10 -mx-4 px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 relative overflow-hidden">
+      <div className="md:hidden sticky top-16 z-10 -mx-4 px-4 py-2 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 overflow-hidden">
         <div
           ref={scrollerRef}
           className="flex gap-2 overflow-x-auto no-scrollbar whitespace-nowrap overscroll-x-contain snap-x snap-mandatory scroll-px-4 [-webkit-overflow-scrolling:touch]"
@@ -77,7 +71,11 @@ export default function CategorySidebar({
             return (
               <Link
                 key={c.id}
-                href={c.id === "all" ? "/products" : `/products/${c.id}`}
+                href={
+                  c.id === "all"
+                    ? "/products"
+                    : `/products?category=${encodeURIComponent(c.id)}`
+                }
                 ref={(el: HTMLAnchorElement | null) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   (buttonRefs.current as any)[c.id] = el as any;
@@ -116,7 +114,11 @@ export default function CategorySidebar({
             return (
               <Link
                 key={c.id}
-                href={c.id === "all" ? "/products" : `/products/${c.id}`}
+                href={
+                  c.id === "all"
+                    ? "/products"
+                    : `/products?category=${encodeURIComponent(c.id)}`
+                }
                 className={`w-full inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
                   active
                     ? "bg-amber-50 text-gray-900 dark:bg-amber-300/10 dark:text-gray-100 border border-amber-200 dark:border-amber-300/30"

@@ -1,32 +1,44 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ProductCard from "@/src/components/ProductCard";
 import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
+import EmptyState from "@/src/components/EmptyState";
 import CategorySidebar from "@/src/components/CategorySidebar";
-import { type CategoryId } from "@/src/core/products";
+import DebugPanel from "@/src/components/DebugPanel";
 import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
+import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 
 export default function ProductsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { products, isLoading } = useProductsWithLoading(); // Get real-time products with loading state
+  const { products, isLoading } = useProductsWithLoading();
 
-  const [category, setCategory] = useState<CategoryId>("all");
+  // Get real-time products with loading state
+
+  const [category, setCategory] = useState<string>("all");
   const [q, setQ] = useState<string>("");
   const [debouncedQ, setDebouncedQ] = useState<string>("");
   const [showSuggest, setShowSuggest] = useState(false);
 
   // Sync state from URL on mount
   useEffect(() => {
-    const c = (searchParams.get("category") as CategoryId | null) ?? "all";
+    const c = (searchParams.get("category") as string | null) ?? "all";
     const qParam = (searchParams.get("q") as string | null) ?? "";
-    const valid = ["all", "gaming", "social", "productivity"] as const;
-    setCategory(valid.includes(c as any) ? (c as CategoryId) : "all");
+    setCategory(c || "all");
     setQ(qParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Also react to URL changes (e.g., when navigating via sidebar links)
+  useEffect(() => {
+    const c = (searchParams.get("category") as string | null) ?? "all";
+    const qParam = (searchParams.get("q") as string | null) ?? "";
+    if (c && c !== category) setCategory(c);
+    if (qParam !== q) setQ(qParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Debounce 250ms for search input
   useEffect(() => {
@@ -51,37 +63,10 @@ export default function ProductsPage() {
     } catch {}
   }, [category, debouncedQ, router, searchParams]);
 
-  const normalized = (s: string) => s.toLowerCase();
-
-  const counts = useMemo(() => {
-    const textFiltered = products.filter((p) => {
-      if (!q.trim()) return true;
-      const t = `${p.title} ${p.description}`;
-      return normalized(t).includes(normalized(q));
-    });
-    return {
-      all: textFiltered.length,
-      gaming: textFiltered.filter((p) => p.category === "gaming").length,
-      social: textFiltered.filter((p) => p.category === "social").length,
-      productivity: textFiltered.filter((p) => p.category === "productivity")
-        .length,
-    } as Record<CategoryId, number>;
-  }, [q]);
-
-  const filtered = useMemo(() => {
-    let list = products;
-    <div className="mb-1 text-xs text-gray-500 dark:text-gray-400">
-      {counts.all} sản phẩm
-    </div>;
-
-    if (q.trim()) {
-      list = list.filter((p) =>
-        normalized(`${p.title} ${p.description}`).includes(normalized(q))
-      );
-    }
-    if (category !== "all") list = list.filter((p) => p.category === category);
-    return list;
-  }, [category, q]);
+  // Use optimized hooks for category operations
+  // Counts should be derived from the currently visible product set per search query
+  const counts = useCategoryCounts(products, debouncedQ);
+  const filtered = useProductFilter(products, category, q);
 
   return (
     <div className="mx-auto max-w-6xl xl:max-w-7xl 2xl:max-w-[88rem] px-4 lg:px-6 py-8">
@@ -118,13 +103,33 @@ export default function ProductsPage() {
           />
         </div>
         <div className="flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          {filtered.length === 0 ? (
+            <div className="py-8">
+              <EmptyState
+                icon="🔍"
+                title="Không tìm thấy sản phẩm nào"
+                description={
+                  q
+                    ? "Hãy thử từ khóa khác hoặc xóa bộ lọc."
+                    : "Hiện chưa có sản phẩm để hiển thị."
+                }
+                primaryAction={
+                  q
+                    ? { label: "Xem tất cả sản phẩm", href: "/products" }
+                    : { label: "Về trang chủ", href: "/" }
+                }
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
+              {filtered.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      <DebugPanel />
     </div>
   );
 }

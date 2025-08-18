@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
-import { CATEGORIES, type ProductOption } from "@/src/core/products";
+import CategorySelect from "@/src/components/CategorySelect";
+import { type ProductOption } from "@/src/core/products";
 import type { SupplierInfo } from "@/src/core/admin";
 import LoadingButton from "@/src/components/LoadingButton";
 import OptionsEditor from "@/src/components/OptionsEditor";
@@ -49,6 +50,18 @@ function CreateProduct() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<
+    Array<{ id: string; name: string; slug: string }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setCategories(j.data);
+      })
+      .catch(() => {});
+  }, []);
 
   function validateForm(): boolean {
     const newErrors: Record<string, string> = {};
@@ -103,6 +116,7 @@ function CreateProduct() {
     try {
       setSaving(true);
 
+      console.log("Creating product with data:", formData);
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -246,23 +260,16 @@ function CreateProduct() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Danh mục *
                 </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    handleInputChange("category", e.target.value)
-                  }
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
-                    errors.category
-                      ? "border-red-500"
-                      : "border-gray-300 dark:border-gray-700"
+                <div
+                  className={`w-full ${
+                    errors.category ? "ring-1 ring-red-500 rounded-lg" : ""
                   }`}
                 >
-                  {CATEGORIES.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.label}
-                    </option>
-                  ))}
-                </select>
+                  <CategorySelect
+                    value={formData.category}
+                    onChange={(slug) => handleInputChange("category", slug)}
+                  />
+                </div>
                 {errors.category && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                     {errors.category}

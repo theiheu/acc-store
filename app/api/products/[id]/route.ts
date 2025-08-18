@@ -10,7 +10,17 @@ export async function GET(
     const { id } = await context.params;
 
     // Get product from dataStore (includes both static and dynamic products)
-    const adminProduct = dataStore.getProduct(id);
+    let adminProduct = dataStore.getProduct(id);
+
+    // Fallback: treat id as possible slug of product title
+    if (!adminProduct) {
+      const { slugify } = await import("@/src/utils/slug");
+      const targetSlug = slugify(id);
+      adminProduct =
+        dataStore
+          .getActiveProducts()
+          .find((p) => slugify(p.title) === targetSlug) || null;
+    }
 
     if (!adminProduct) {
       return NextResponse.json(

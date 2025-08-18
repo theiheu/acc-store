@@ -189,6 +189,7 @@ export interface AuditLogEntry {
 export interface AdminPermissions {
   canManageUsers: boolean;
   canManageProducts: boolean;
+  canManageCategories: boolean;
   canManageOrders: boolean;
   canViewAnalytics: boolean;
   canManageAdmins: boolean;
@@ -270,6 +271,7 @@ export interface ApiResponse<T = any> {
 export const DEFAULT_ADMIN_PERMISSIONS: AdminPermissions = {
   canManageUsers: true,
   canManageProducts: true,
+  canManageCategories: true,
   canManageOrders: true,
   canViewAnalytics: true,
   canManageAdmins: false,

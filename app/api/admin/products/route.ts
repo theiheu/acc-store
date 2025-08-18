@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       options: productData.options || [],
       stock: productData.stock || 0,
       sold: 0,
-      isActive: productData.isActive === true,
+      isActive: productData.isActive !== false, // Default to true unless explicitly false
       createdBy: admin.id,
       lastModifiedBy: admin.id,
       supplier: productData.supplier,
@@ -241,8 +241,18 @@ export async function POST(request: NextRequest) {
     console.log("API Create Product: Created product", {
       id: newProduct.id,
       title: newProduct.title,
+      category: newProduct.category,
       isActive: newProduct.isActive,
     });
+
+    // Verify the product appears in public products
+    const publicProducts = dataStore.getPublicProducts();
+    const foundInPublic = publicProducts.find((p) => p.id === newProduct.id);
+    console.log(
+      "API Create Product: Found in public products:",
+      !!foundInPublic,
+      foundInPublic?.category
+    );
 
     // Log admin action
     await logAdminAction(

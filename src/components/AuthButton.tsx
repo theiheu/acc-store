@@ -24,7 +24,7 @@ export default function AuthButton() {
   const { getUserTransactions, lastUpdate } = useDataSync();
   const [transactions, setTransactions] = useState<any[]>([]);
 
-  // Set up real-time updates for this user
+  // Set up real-time updates for this user - always call hooks
   const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
 
   // Update transactions when data changes

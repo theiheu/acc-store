@@ -81,7 +81,7 @@ export default function OrderCard({
                     <SkeletonText width="w-40" />
                   ) : (
                     <Link
-                      href={toProductPath(p!.category, p!.title)}
+                      href={`/products/${encodeURIComponent(p!.id)}`}
                       className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:no-underline font-bold"
                       aria-label={`Xem chi tiết sản phẩm ${title}`}
                     >

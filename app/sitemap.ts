@@ -1,13 +1,11 @@
 import { MetadataRoute } from "next";
 import { dataStore } from "@/src/core/data-store";
-import { slugify } from "@/src/utils/slug";
-import { CATEGORIES } from "@/src/core/products";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
   const now = new Date();
 
-  const staticPages: MetadataRoute.Sitemap = [
+  const routes: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
       lastModified: now,
@@ -22,27 +20,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  const categoryUrls: MetadataRoute.Sitemap = CATEGORIES.map((c) => ({
-    url: `${baseUrl}/products/${encodeURIComponent(c.id)}`,
-    lastModified: now,
-    changeFrequency: "daily" as const,
-    priority: 0.85,
-  }));
+  // Active category landing pages
+  try {
+    const categories = dataStore.getActiveCategories();
+    for (const c of categories) {
+      routes.push({
+        url: `${baseUrl}/categories/${encodeURIComponent(c.slug)}`,
+        lastModified: c.updatedAt || c.createdAt || now,
+        changeFrequency: "daily",
+        priority: 0.85,
+      });
+    }
+  } catch {}
 
-  const productUrls: MetadataRoute.Sitemap = dataStore
-    .getActiveProducts()
-    .map((p) => {
-      const category = p.category;
-      const slug = slugify(p.title);
-      return {
-        url: `${baseUrl}/products/${encodeURIComponent(
-          category
-        )}/${encodeURIComponent(slug)}`,
-        lastModified: p.updatedAt || p.createdAt || now,
-        changeFrequency: "weekly" as const,
-        priority: 0.8,
-      };
-    });
-
-  return [...staticPages, ...categoryUrls, ...productUrls];
+  return routes;
 }

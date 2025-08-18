@@ -24,13 +24,14 @@ export async function middleware(req: NextRequest) {
     const parts = pathname.split("/").filter(Boolean); // ["products", ...]
     const after = parts.slice(1);
 
-    // Case A: /products/:id -> redirect to canonical slug URL (301)
+    // Case A: /products/:single  (id or slug)
     if (after.length === 1) {
-      const id = after[0];
-      if (isUUIDLike(id)) {
+      const single = after[0];
+      if (isUUIDLike(single)) {
+        // /products/:id -> redirect to canonical slug URL (301)
         try {
           const res = await fetch(
-            `${origin}/api/products/resolve?id=${encodeURIComponent(id)}`,
+            `${origin}/api/products/resolve?id=${encodeURIComponent(single)}`,
             { cache: "no-store" }
           );
           if (res.ok) {
@@ -43,20 +44,12 @@ export async function middleware(req: NextRequest) {
             }
           }
         } catch {}
-      }
-      return NextResponse.next();
-    }
-
-    // Case B: /products/:category/:slug -> rewrite to /products/:id
-    if (after.length >= 2) {
-      const [category, slug] = after;
-      // Ignore if second segment looks like our id to avoid loops
-      if (!isUUIDLike(slug)) {
+        return NextResponse.next();
+      } else {
+        // /products/:slug-only -> rewrite to /products/:id if resolvable
         try {
           const res = await fetch(
-            `${origin}/api/products/resolve?category=${encodeURIComponent(
-              category
-            )}&slug=${encodeURIComponent(slug)}`,
+            `${origin}/api/products/resolve?slug=${encodeURIComponent(single)}`,
             { cache: "no-store" }
           );
           if (res.ok) {
@@ -70,6 +63,42 @@ export async function middleware(req: NextRequest) {
             }
           }
         } catch {}
+        return NextResponse.next();
+      }
+    }
+
+    // Case B: /products/:category/:slug -> rewrite to /products/:id
+    if (after.length >= 2) {
+      const [category, slug] = after;
+      console.log("Middleware: Processing category/slug:", category, slug); // Debug log
+
+      // Ignore if second segment looks like our id to avoid loops
+      if (!isUUIDLike(slug)) {
+        try {
+          const res = await fetch(
+            `${origin}/api/products/resolve?category=${encodeURIComponent(
+              category
+            )}&slug=${encodeURIComponent(slug)}`,
+            { cache: "no-store" }
+          );
+          console.log("Middleware resolve response:", res.status); // Debug log
+
+          if (res.ok) {
+            const json = await res.json();
+            console.log("Middleware resolve data:", json); // Debug log
+
+            if (json?.success && json?.data?.id) {
+              const rewriteTo = new URL(
+                `/products/${json.data.id}` + (url.search || ""),
+                req.url
+              );
+              console.log("Middleware rewriting to:", rewriteTo.pathname); // Debug log
+              return NextResponse.rewrite(rewriteTo);
+            }
+          }
+        } catch (error) {
+          console.error("Middleware error:", error); // Debug log
+        }
       }
     }
   }

@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useState,
+  useMemo,
   ReactNode,
 } from "react";
 import { dataStore, DataStoreEvent } from "@/src/core/data-store";
@@ -25,6 +26,9 @@ interface DataSyncContextType {
   products: AdminProduct[];
   publicProducts: Product[];
   getProductById: (id: string) => AdminProduct | null;
+
+  // Category data
+  categories: any[];
 
   // Transaction data
   transactions: UserTransaction[];
@@ -69,20 +73,29 @@ export function DataSyncProvider({
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [publicProducts, setPublicProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
   const [topupRequests, setTopupRequests] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Force load products immediately on mount
+  // Force load data immediately on mount
   useEffect(() => {
     dataStore.ensureProductsLoaded();
     const products = dataStore.getPublicProducts();
+    const categories = dataStore.getCategories();
+
     if (products.length > 0) {
       setPublicProducts(products);
       setIsInitialLoading(false);
     }
+
+    setCategories(categories);
+    console.log(
+      "DataSyncProvider: Initial categories loaded:",
+      categories.length
+    );
   }, []);
 
   // Set up real-time updates
@@ -379,14 +392,28 @@ export function DataSyncProvider({
 
         case "PRODUCT_CREATED":
         case "PRODUCT_UPDATED":
+          console.log(
+            "DataSyncProvider: Received",
+            event.type,
+            "event for product:",
+            event.payload?.title
+          );
           setProducts(dataStore.getProducts());
           // Refresh public products from API
           fetch("/api/products")
             .then((res) => res.json())
             .then((result) => {
               if (result.success) {
+                console.log(
+                  "DataSyncProvider: Updated publicProducts from API:",
+                  result.data.length,
+                  "products"
+                );
                 setPublicProducts(result.data);
               } else {
+                console.log(
+                  "DataSyncProvider: API failed, using dataStore fallback"
+                );
                 setPublicProducts(dataStore.getPublicProducts());
               }
             })
@@ -420,6 +447,33 @@ export function DataSyncProvider({
             const updatedUser = dataStore.getPublicUser(currentUserEmail!);
             setCurrentUser(updatedUser);
           }
+          break;
+
+        case "CATEGORY_CREATED":
+        case "CATEGORY_UPDATED":
+        case "CATEGORY_DELETED":
+          console.log(
+            "DataSyncProvider: Received",
+            event.type,
+            "event for:",
+            event.payload?.name
+          );
+          // Refresh categories from API
+          fetch("/api/categories")
+            .then((res) => res.json())
+            .then((result) => {
+              if (result.success) {
+                console.log(
+                  "DataSyncProvider: Updated categories from API:",
+                  result.data.length,
+                  "categories"
+                );
+                setCategories(result.data);
+              }
+            })
+            .catch((error) => {
+              console.error("DataSyncProvider: Categories API error", error);
+            });
           break;
       }
     });
@@ -466,6 +520,7 @@ export function DataSyncProvider({
     products,
     publicProducts,
     getProductById,
+    categories,
     transactions,
     getUserTransactions,
     topupRequests,
@@ -515,25 +570,37 @@ export function useProducts() {
 export function useProductsWithLoading() {
   const { publicProducts, isInitialLoading } = useDataSync();
 
-  // Force show products if available, ignore loading state
-  const shouldShowLoading = publicProducts.length === 0 && isInitialLoading;
+  // Use useMemo to ensure consistent return values and prevent conditional logic
+  const result = useMemo(() => {
+    // Ensure publicProducts is always an array
+    const safeProducts = Array.isArray(publicProducts) ? publicProducts : [];
 
-  return {
-    products: publicProducts,
-    isLoading: shouldShowLoading,
-  };
+    // Force show products if available, ignore loading state
+    const shouldShowLoading = safeProducts.length === 0 && isInitialLoading;
+
+    return {
+      products: safeProducts,
+      isLoading: shouldShowLoading,
+    };
+  }, [publicProducts, isInitialLoading]);
+
+  return result;
 }
 
 // Hook for user balance with real-time updates
 export function useUserBalance(userEmail?: string) {
   const { currentUser, getUserByEmail } = useDataSync();
 
-  if (userEmail && userEmail !== currentUser?.email) {
-    const user = getUserByEmail(userEmail);
-    return user?.balance || 0;
-  }
+  // Use useMemo to avoid conditional logic affecting hook order
+  const balance = useMemo(() => {
+    if (userEmail && userEmail !== currentUser?.email) {
+      const user = getUserByEmail(userEmail);
+      return user?.balance || 0;
+    }
+    return currentUser?.balance || 0;
+  }, [userEmail, currentUser, getUserByEmail]);
 
-  return currentUser?.balance || 0;
+  return balance;
 }
 
 // Hook for admin dashboard stats with real-time updates

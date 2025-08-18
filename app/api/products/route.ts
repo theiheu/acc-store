@@ -13,9 +13,21 @@ export async function GET(request: NextRequest) {
     // Get public products from data store
     let products = dataStore.getPublicProducts();
 
+    console.log("API /products: Total products:", products.length);
+    console.log("API /products: Category filter:", category);
+    console.log(
+      "API /products: Products by category:",
+      products.map((p) => ({ id: p.id, title: p.title, category: p.category }))
+    );
+
     // Apply filters
     if (category && category !== "all") {
       products = products.filter((product) => product.category === category);
+      console.log(
+        "API /products: After category filter:",
+        products.length,
+        "products"
+      );
     }
 
     if (search) {

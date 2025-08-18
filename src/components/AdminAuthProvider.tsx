@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 import { useSession } from "next-auth/react";
 import { AdminProfile, AdminPermissions } from "@/src/core/admin";
 import { isEmailAdmin } from "@/src/core/admin-auth";
@@ -37,7 +43,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
 
     // Check if user is admin
     const isAdminUser = isEmailAdmin(session.user.email);
-    
+
     if (isAdminUser) {
       // In a real app, fetch admin profile from API
       // For now, create a mock profile
@@ -49,6 +55,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         permissions: {
           canManageUsers: true,
           canManageProducts: true,
+          canManageCategories: true,
           canManageOrders: true,
           canViewAnalytics: true,
           canManageAdmins: false,
@@ -86,10 +93,16 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
   );
 }
 
-export function useAdminAuth() {
+export function useAdminAuth(): AdminAuthContextType {
   const context = useContext(AdminAuthContext);
+  // Fallback to non-admin defaults when provider is not present (public pages)
   if (!context) {
-    throw new Error("useAdminAuth must be used within an AdminAuthProvider");
+    return {
+      isAdmin: false,
+      adminProfile: null,
+      hasPermission: () => false,
+      loading: false,
+    };
   }
   return context;
 }
@@ -159,6 +172,6 @@ export function AdminPermissionGate({
   fallback = null,
 }: AdminPermissionGateProps) {
   const hasPermission = useAdminPermission(permission);
-  
+
   return hasPermission ? <>{children}</> : <>{fallback}</>;
 }

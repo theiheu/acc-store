@@ -10,6 +10,8 @@ import {
 } from "./admin";
 import { Product, products } from "./products";
 import { User } from "./auth";
+import { Category } from "./categories";
+import { slugify } from "@/src/utils/slug";
 
 // Server-only persistence utilities (guarded to avoid bundling issues on client)
 const __isServer = typeof window === "undefined";
@@ -48,6 +50,7 @@ class DataStore {
   private transactions: Map<string, UserTransaction> = new Map();
   private topupRequests: Map<string, TopupRequest> = new Map();
   private activities: ActivityLog[] = [];
+  private categories: Map<string, Category> = new Map();
   private listeners: EventListener[] = [];
   // Orders are persisted in a separate file; basic in-memory map for now
   private orders: Map<string, import("./admin").Order> = new Map();
@@ -63,6 +66,7 @@ class DataStore {
     topups: __isServer ? __path.join(this.baseDir, "topups.json") : "",
     activities: __isServer ? __path.join(this.baseDir, "activities.json") : "",
     orders: __isServer ? __path.join(this.baseDir, "orders.json") : "",
+    categories: __isServer ? __path.join(this.baseDir, "categories.json") : "",
   };
 
   private saveTimer: any = null;
@@ -92,11 +96,20 @@ class DataStore {
         toJSON(Array.from(this.users.values())),
         "utf-8"
       );
-      __fs.writeFileSync(
-        this.files.products,
-        toJSON(Array.from(this.products.values())),
-        "utf-8"
+
+      const productsArray = Array.from(this.products.values());
+      console.log("DataStore: Persisting", productsArray.length, "products");
+      console.log(
+        "DataStore: Products categories:",
+        productsArray.map((p) => ({
+          id: p.id,
+          title: p.title,
+          category: p.category,
+          isActive: p.isActive,
+        }))
       );
+
+      __fs.writeFileSync(this.files.products, toJSON(productsArray), "utf-8");
       __fs.writeFileSync(
         this.files.transactions,
         toJSON(Array.from(this.transactions.values())),
@@ -115,6 +128,11 @@ class DataStore {
       __fs.writeFileSync(
         this.files.orders,
         toJSON(Array.from(this.orders.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.categories,
+        toJSON(Array.from(this.categories.values())),
         "utf-8"
       );
     } catch (e) {
@@ -189,6 +207,14 @@ class DataStore {
           this.orders.set(o.id, o);
         });
       }
+
+      const categories = parseJSON(this.files.categories);
+      if (Array.isArray(categories)) {
+        categories.forEach((c) => {
+          reviveDates(c);
+          this.categories.set(c.id, c);
+        });
+      }
     } catch (e) {
       console.error("Load persisted data error:", e);
     }
@@ -226,6 +252,49 @@ class DataStore {
 
   // Initialize with real homepage products only
   private initializeData() {
+    // Seed default categories (including uncategorized)
+    const defaultCategories: Array<
+      Omit<Category, "id" | "createdAt" | "updatedAt">
+    > = [
+      {
+        name: "Gaming",
+        slug: "gaming",
+        description: "Tài khoản Gaming",
+        isActive: true,
+      },
+      {
+        name: "Social",
+        slug: "social",
+        description: "Tài khoản Social Media",
+        isActive: true,
+      },
+      {
+        name: "Productivity",
+        slug: "productivity",
+        description: "Tài khoản Productivity",
+        isActive: true,
+      },
+      {
+        name: "Chưa phân loại",
+        slug: "uncategorized",
+        description: "Danh mục mặc định",
+        isActive: true,
+      },
+    ];
+
+    defaultCategories.forEach((c) => {
+      const now = new Date();
+      const id = `cat-${c.slug}`;
+      this.categories.set(id, {
+        id,
+        name: c.name,
+        slug: c.slug,
+        description: c.description,
+        isActive: c.isActive,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
     // Load existing users from file first
     this.loadUsersFromFile();
 
@@ -250,11 +319,55 @@ class DataStore {
     // No initial activities - they will be logged through real admin actions
   }
 
-  // Public method to ensure products are loaded (for client-side initialization)
+  // Public method to ensure products & categories are loaded (for client-side initialization)
   ensureProductsLoaded(): void {
-    // Force load static products if not already loaded
     if (this.products.size === 0) {
       this.initializeData();
+    }
+    // Ensure categories exist even if products are loaded from persistence without categories
+    if (this.categories.size === 0) {
+      // Seed default categories without touching products
+      const defaults: Array<Omit<Category, "id" | "createdAt" | "updatedAt">> =
+        [
+          {
+            name: "Gaming",
+            slug: "gaming",
+            description: "Tài khoản Gaming",
+            isActive: true,
+          },
+          {
+            name: "Social",
+            slug: "social",
+            description: "Tài khoản Social Media",
+            isActive: true,
+          },
+          {
+            name: "Productivity",
+            slug: "productivity",
+            description: "Tài khoản Productivity",
+            isActive: true,
+          },
+          {
+            name: "Chưa phân loại",
+            slug: "uncategorized",
+            description: "Danh mục mặc định",
+            isActive: true,
+          },
+        ];
+      defaults.forEach((c) => {
+        const now = new Date();
+        const id = `cat-${c.slug}`;
+        this.categories.set(id, {
+          id,
+          name: c.name,
+          slug: c.slug,
+          description: c.description,
+          isActive: c.isActive,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+      this.scheduleSave();
     }
   }
 
@@ -477,14 +590,190 @@ class DataStore {
     return data;
   }
 
+  // Category operations
+  getCategories(): Category[] {
+    return Array.from(this.categories.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  }
+
+  getActiveCategories(): Category[] {
+    return this.getCategories().filter((c) => c.isActive);
+  }
+
+  getCategoryById(id: string): Category | null {
+    return this.categories.get(id) || null;
+  }
+
+  getCategoryBySlug(slug: string): Category | null {
+    const s = slugify(slug);
+    return this.getCategories().find((c) => c.slug === s) || null;
+  }
+
+  createCategory(
+    data: Omit<Category, "id" | "slug" | "createdAt" | "updatedAt">
+  ): Category {
+    const name = data.name?.trim();
+    if (!name) throw new Error("Tên danh mục không được trống");
+
+    const slug = slugify(name);
+    // Unique slug validation
+    if (this.getCategoryBySlug(slug)) {
+      throw new Error("Slug đã tồn tại");
+    }
+
+    const now = new Date();
+    const category: Category = {
+      id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      name,
+      slug,
+      description: data.description || "",
+      icon: data.icon || "🏷️",
+      featuredProductIds: Array.isArray(data.featuredProductIds)
+        ? data.featuredProductIds
+        : [],
+      isActive: data.isActive ?? true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.categories.set(category.id, category);
+
+    // Activity log
+    this.logActivity({
+      adminId: "system",
+      adminName: "System",
+      action: "Tạo danh mục",
+      targetType: "system",
+      targetId: category.id,
+      description: `Tạo danh mục: ${category.name}`,
+    });
+
+    // Emit event for real-time updates
+    console.log(
+      "DataStore: Emitting CATEGORY_CREATED event for:",
+      category.name
+    );
+    this.emit({ type: "CATEGORY_CREATED", payload: category });
+
+    this.scheduleSave();
+    return category;
+  }
+
+  updateCategory(id: string, updates: Partial<Category>): Category | null {
+    const existing = this.categories.get(id);
+    if (!existing) {
+      console.log("DataStore: updateCategory - category not found:", id);
+      return null;
+    }
+
+    console.log(
+      "DataStore: updateCategory - updating category:",
+      existing.name,
+      "with:",
+      updates
+    );
+
+    let slug = existing.slug;
+    if (
+      updates.name &&
+      updates.name.trim() &&
+      updates.name.trim() !== existing.name
+    ) {
+      const newSlug = slugify(updates.name.trim());
+      // Ensure uniqueness if slug changes
+      if (newSlug !== existing.slug && this.getCategoryBySlug(newSlug)) {
+        throw new Error("Slug đã tồn tại");
+      }
+      slug = newSlug;
+    }
+
+    const updated: Category = {
+      ...existing,
+      ...updates,
+      // Preserve fields when undefined is passed from API
+      icon: updates.icon ?? existing.icon,
+      isActive: updates.isActive ?? existing.isActive,
+      description: updates.description ?? existing.description,
+      featuredProductIds: Array.isArray(updates.featuredProductIds)
+        ? updates.featuredProductIds
+        : existing.featuredProductIds,
+      slug,
+      updatedAt: new Date(),
+    };
+
+    this.categories.set(id, updated);
+
+    this.logActivity({
+      adminId: "system",
+      adminName: "System",
+      action: "Cập nhật danh mục",
+      targetType: "system",
+      targetId: id,
+      description: `Cập nhật danh mục: ${updated.name}`,
+    });
+
+    // Emit event for real-time updates
+    console.log(
+      "DataStore: Emitting CATEGORY_UPDATED event for:",
+      updated.name
+    );
+    this.emit({ type: "CATEGORY_UPDATED", payload: updated });
+
+    this.scheduleSave();
+    return updated;
+  }
+
+  deleteCategory(id: string): boolean {
+    const existing = this.categories.get(id);
+    if (!existing) return false;
+
+    // Prevent deleting default 'uncategorized'
+    if (existing.slug === "uncategorized") {
+      throw new Error("Không thể xóa danh mục mặc định");
+    }
+
+    // Reassign products in this category to 'uncategorized'
+    const fallback = this.getCategoryBySlug("uncategorized");
+    const fallbackSlug = fallback?.slug || "uncategorized";
+    Array.from(this.products.values()).forEach((p) => {
+      if (slugify(p.category) === existing.slug) {
+        p.category = fallbackSlug as any;
+      }
+    });
+
+    const ok = this.categories.delete(id);
+    if (ok) {
+      this.logActivity({
+        adminId: "system",
+        adminName: "System",
+        action: "Xóa danh mục",
+        targetType: "system",
+        targetId: id,
+        description: `Xóa danh mục: ${existing.name}`,
+      });
+
+      // Emit event for real-time updates
+      console.log(
+        "DataStore: Emitting CATEGORY_DELETED event for:",
+        existing.name
+      );
+      this.emit({ type: "CATEGORY_DELETED", payload: existing });
+
+      this.scheduleSave();
+    }
+    return ok;
+  }
+
   // Product operations
   getProducts(): AdminProduct[] {
     return Array.from(this.products.values());
   }
 
   getActiveProducts(): AdminProduct[] {
+    // Treat undefined as active for backward compatibility with older persisted data
     return Array.from(this.products.values()).filter(
-      (product) => product.isActive
+      (product) => product.isActive !== false
     );
   }
 
@@ -563,6 +852,17 @@ class DataStore {
         `trạng thái thành ${updates.isActive ? "hoạt động" : "tạm dừng"}`
       );
     }
+    if (
+      updates.category !== undefined &&
+      updates.category !== product.category
+    ) {
+      changes.push(
+        `danh mục từ "${product.category}" thành "${updates.category}"`
+      );
+    }
+    if (updates.title !== undefined && updates.title !== product.title) {
+      changes.push(`tên từ "${product.title}" thành "${updates.title}"`);
+    }
 
     if (changes.length > 0) {
       this.logActivity({
@@ -575,6 +875,12 @@ class DataStore {
       });
     }
 
+    console.log(
+      "DataStore: Emitting PRODUCT_UPDATED event for:",
+      updatedProduct.title,
+      "category:",
+      updatedProduct.category
+    );
     this.emit({ type: "PRODUCT_UPDATED", payload: updatedProduct });
 
     // Persist

@@ -46,6 +46,13 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     permission: "canManageProducts",
   },
   {
+    id: "categories",
+    label: "Danh mục",
+    icon: "🗂️",
+    href: "/admin/categories",
+    permission: "canManageCategories",
+  },
+  {
     id: "orders",
     label: "Quản lý đơn hàng",
     icon: "🛒",
@@ -134,7 +141,6 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               {adminProfile?.email}
             </p>
           </div>
-        </div>
         </div>
 
         {/* Navigation */}

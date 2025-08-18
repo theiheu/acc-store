@@ -1,20 +1,82 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import { toProductPath } from "@/src/utils/slug";
+import { useMemo, useState, useEffect, useCallback } from "react";
+import { toProductPath, slugify } from "@/src/utils/slug";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound, useParams } from "next/navigation";
 import { type Product, type ProductOption } from "@/src/core/products";
 import { useToastContext } from "@/src/components/ToastProvider";
-import { withUtmQuery } from "@/src/utils/utm";
+
 import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
-import ProductOptions from "@/src/components/ProductOptions";
 import ProductInfoTabs from "@/src/components/ProductInfoTabs";
+import ProductImage from "@/src/components/ProductImage";
+import ProductPurchaseForm from "@/src/components/ProductPurchaseForm";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import ConfirmPurchaseModal from "@/src/components/ConfirmPurchaseModal";
-import { useRouter } from "next/navigation";
 import { useDataSync } from "@/src/components/DataSyncProvider";
+
+// Custom hook for product data fetching
+function useProductData(id: string | undefined) {
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+
+  const fetchProduct = useCallback(async () => {
+    if (!id) {
+      setFetchError(true);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setFetchError(false);
+
+      const response = await fetch(
+        `/api/products/resolve?id=${encodeURIComponent(id)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const resolveData = await response.json();
+
+      if (!resolveData.success || !resolveData.data?.id) {
+        throw new Error("Product not found");
+      }
+
+      // Now fetch the actual product data
+      const productResponse = await fetch(
+        `/api/products/${resolveData.data.id}`
+      );
+
+      if (!productResponse.ok) {
+        throw new Error(`HTTP ${productResponse.status}`);
+      }
+
+      const productData = await productResponse.json();
+
+      if (!productData.success || !productData.data) {
+        throw new Error("Product data not found");
+      }
+
+      setProduct(productData.data);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      setFetchError(true);
+      setProduct(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  return { product, isLoading, fetchError, refetch: fetchProduct };
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -23,19 +85,17 @@ export default function ProductDetailPage() {
     : (params?.id as string | undefined);
 
   // Always call ALL hooks at the top in the same order
-  const router = useRouter();
   const { currentUser } = useDataSync();
   const { hideLoading, showLoading } = useGlobalLoading();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [qty, setQty] = useState(1);
+  const { product, isLoading, fetchError } = useProductData(id);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const { show } = useToastContext();
+
+  // Simplified state for purchase form
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(
     null
   );
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const { show } = useToastContext();
+  const [qty, setQty] = useState(1);
 
   const fmt = useMemo(
     () =>
@@ -55,61 +115,79 @@ export default function ProductDetailPage() {
     return product?.price || 0;
   }, [selectedOption, product?.price]);
 
-  useEffect(() => {
-    // Hide any global loading from navigation
-    hideLoading();
+  // Generate canonical URL for SEO
+  const canonicalUrl = useMemo(() => {
+    if (!product) return "";
+    const slug = slugify(product.title);
+    return (
+      (process.env.NEXT_PUBLIC_SITE_URL || "") +
+      toProductPath(product.category, slug)
+    );
+  }, [product]);
 
-    // Fetch product from API or redirect to canonical slug route if possible
-    const fetchProduct = async () => {
-      if (!id) {
-        console.log("No product ID provided");
-        setIsLoading(false);
-        setFetchError(true);
+  // Optimized purchase handler
+  const handlePurchaseClick = useCallback(() => {
+    if (!product) return;
+
+    try {
+      // Check stock based on product structure
+      let availableStock = 0;
+      if (product.options && product.options.length > 0) {
+        if (!selectedOption) {
+          show("Vui lòng chọn loại sản phẩm");
+          return;
+        }
+        availableStock = selectedOption.stock || 0;
+      } else {
+        availableStock = product.stock || 0;
+      }
+
+      if (qty > availableStock) {
+        show(`Chỉ còn ${availableStock} sản phẩm trong kho`);
         return;
       }
 
-      try {
-        // Try to resolve canonical route first for backward compatibility
-        const res = await fetch(
-          `/api/products/resolve?id=${encodeURIComponent(id)}`
-        );
-        if (res.ok) {
-          const resolved = await res.json();
-          const cat = resolved?.data?.category;
-          const slug = resolved?.data?.slug;
-          if (cat && slug) {
-            // Redirect to SEO-friendly URL and stop further work
-            router.replace(
-              require("@/src/utils/slug").toProductPath(cat, slug)
-            );
-            return;
-          }
-        }
-
-        // Fallback: fetch by id directly
-        const response = await fetch(`/api/products/${id}`);
-        const result = await response.json();
-
-        if (result.success) {
-          setProduct(result.data);
-          setFetchError(false);
-        } else {
-          console.error("Failed to fetch product:", result.error);
-          setProduct(null);
-          setFetchError(true);
-        }
-      } catch (error) {
-        console.error("Error fetching product:", error);
-        setProduct(null);
-        setFetchError(true);
-      } finally {
-        // Show skeleton for a brief moment
-        setTimeout(() => setIsLoading(false), 500);
+      if (!currentUser) {
+        show("Vui lòng đăng nhập để mua hàng");
+        return;
       }
-    };
 
-    fetchProduct();
-  }, [id, hideLoading]);
+      if ((currentUser.balance || 0) < currentPrice * qty) {
+        show("Số dư không đủ. Vui lòng nạp thêm tiền");
+        return;
+      }
+
+      setConfirmOpen(true);
+    } catch (error) {
+      console.error("Error in purchase handler:", error);
+      show("Có lỗi xảy ra. Vui lòng thử lại");
+    }
+  }, [product, selectedOption, qty, currentUser, currentPrice, show]);
+
+  const handleTopUp = useCallback(() => {
+    showLoading("Đang chuyển đến nạp tiền...");
+    show("Đã chuyển sang trang nạp tiền");
+  }, [showLoading, show]);
+
+  // Memoized breadcrumbs (must be before early returns)
+  const crumbs = useMemo(() => {
+    if (!product) return [];
+
+    const slug = slugify(product.title);
+    return [
+      { href: "/", label: "Trang chủ" },
+      { href: "/products", label: "Sản phẩm" },
+      {
+        href: toProductPath(product.category, slug),
+        label: product.title,
+      },
+    ];
+  }, [product]);
+
+  // Hide loading on mount
+  useEffect(() => {
+    hideLoading();
+  }, [hideLoading]);
 
   // Handle early returns after all hooks are called
   if (isLoading) {
@@ -120,18 +198,6 @@ export default function ProductDetailPage() {
   if (!product || fetchError) {
     notFound();
   }
-
-  // Breadcrumbs
-  const crumbs = [
-    { href: "/", label: "Trang chủ" },
-    { href: "/products", label: "Sản phẩm" },
-    {
-      href: toProductPath(product.category, product.title),
-      label: product.title,
-    },
-  ];
-  const badge = product.badge;
-  const hasThumb = Boolean(product.imageUrl);
 
   return (
     <div className="min-h-[calc(100dvh-80px)] bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
@@ -155,12 +221,7 @@ export default function ProductDetailPage() {
                 (selectedOption?.stock ?? product.stock ?? 0) > 0
                   ? "https://schema.org/InStock"
                   : "https://schema.org/OutOfStock",
-              url:
-                (process.env.NEXT_PUBLIC_SITE_URL || "") +
-                require("@/src/utils/slug").toProductPath(
-                  product.category,
-                  product.title
-                ),
+              url: canonicalUrl,
             },
           }),
         }}
@@ -188,12 +249,7 @@ export default function ProductDetailPage() {
                 "@type": "ListItem",
                 position: 3,
                 name: product.title,
-                item:
-                  (process.env.NEXT_PUBLIC_SITE_URL || "") +
-                  require("@/src/utils/slug").toProductPath(
-                    product.category,
-                    product.title
-                  ),
+                item: canonicalUrl,
               },
             ],
           }),
@@ -216,186 +272,23 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden flex flex-col">
-            {hasThumb && !imageError ? (
-              <div className="relative aspect-[16/9] md:aspect-[4/3] lg:aspect-[3/2] h-full">
-                <Image
-                  src={product.imageUrl!}
-                  alt={product.title}
-                  fill
-                  sizes="(min-width: 1280px) 50vw, (min-width: 768px) 60vw, 100vw"
-                  className="object-contain"
-                  onError={() => {
-                    console.warn(
-                      "Product detail image failed to load:",
-                      product.imageUrl
-                    );
-                    setImageError(true);
-                  }}
-                />
-              </div>
-            ) : (
-              <div className="aspect-[16/9] bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-300/20 dark:to-amber-300/10 flex items-center justify-center">
-                <span className="text-7xl">{product.imageEmoji ?? "🛍️"}</span>
-              </div>
-            )}
-          </div>
+          <ProductImage
+            imageUrl={product.imageUrl}
+            imageEmoji={product.imageEmoji}
+            title={product.title}
+          />
 
-          <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
-            {/* CTAs (mua ngay, dùng mã) stay in upper half */}
-            <div>
-              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-semibold tracking-tight text-amber-700">
-                {product.title}
-              </h1>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                {product.description}
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-3xl font-bold tabular-nums">
-                {fmt.format(currentPrice)}
-              </div>
-              {/* Stock display - options-first approach */}
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {selectedOption ? (
-                  // Show stock from selected option
-                  selectedOption.stock > 0 ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      Còn {selectedOption.stock} sản phẩm
-                    </span>
-                  ) : (
-                    <span className="text-red-600 dark:text-red-400">
-                      Hết hàng
-                    </span>
-                  )
-                ) : product.options && product.options.length > 0 ? (
-                  // Product has options but none selected yet
-                  <span className="text-gray-500">
-                    Chọn loại sản phẩm để xem tồn kho
-                  </span>
-                ) : // Product without options - show main stock
-                product.stock && product.stock > 0 ? (
-                  <span className="text-green-600 dark:text-green-400">
-                    Còn {product.stock} sản phẩm
-                  </span>
-                ) : (
-                  <span className="text-red-600 dark:text-red-400">
-                    Hết hàng
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Product Options */}
-            {product.options && product.options.length > 0 && (
-              <div className="space-y-4">
-                <ProductOptions
-                  options={product.options}
-                  onSelectionChange={(option) => {
-                    setSelectedOption(option);
-                  }}
-                />
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                aria-label="Giảm"
-              >
-                −
-              </button>
-              <input
-                inputMode="numeric"
-                value={qty}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value || "1", 10);
-                  if (!Number.isNaN(v)) setQty(Math.min(99, Math.max(1, v)));
-                }}
-                className="w-16 text-center rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-2 py-2 text-sm tabular-nums"
-              />
-              <button
-                type="button"
-                onClick={() => setQty((q) => Math.min(99, q + 1))}
-                className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                aria-label="Tăng"
-              >
-                +
-              </button>
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={async () => {
-                  try {
-                    // Check stock based on product structure
-                    if (product.options && product.options.length > 0) {
-                      // Product with options - check selected option
-                      if (!selectedOption) {
-                        show("Vui lòng chọn loại sản phẩm");
-                        return;
-                      }
-                      if (selectedOption.stock === 0) {
-                        show("Sản phẩm đã hết hàng");
-                        return;
-                      }
-                      if (selectedOption.stock < qty) {
-                        show(`Chỉ còn ${selectedOption.stock} sản phẩm`);
-                        return;
-                      }
-                    } else {
-                      // Product without options - check main product stock
-                      if (product.stock === 0) {
-                        show("Sản phẩm đã hết hàng");
-                        return;
-                      }
-                      if (product.stock && product.stock < qty) {
-                        show(`Chỉ còn ${product.stock} sản phẩm`);
-                        return;
-                      }
-                    }
-
-                    // Open confirmation modal
-                    setConfirmOpen(true);
-                  } catch (e) {
-                    console.error(e);
-                    show("Có lỗi xảy ra khi kiểm tra đơn hàng");
-                  }
-                }}
-                className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 cursor-pointer"
-              >
-                Mua ngay
-              </button>
-              <Link
-                href={{
-                  pathname: "/deposit",
-                  query: {
-                    utm_source: "product-detail",
-                    utm_medium: "cta",
-                    utm_campaign: product.id,
-                    utm_content: "detail-outline",
-                  },
-                }}
-                onClick={() => {
-                  showLoading("Đang chuyển đến nạp tiền...");
-                  show("Đã chuyển sang trang nạp tiền");
-                }}
-                className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Nạp thêm
-              </Link>
-            </div>
-
-            <div className="pt-4 text-sm text-gray-600 dark:text-gray-400">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Bảo hành 7 ngày (áp dụng cho gói phù hợp)</li>
-                <li>Hỗ trợ nhanh qua email</li>
-                <li>Cập nhật tài khoản tự động sau khi thanh toán</li>
-              </ul>
-            </div>
-          </div>
+          <ProductPurchaseForm
+            product={product}
+            currentPrice={currentPrice}
+            fmt={fmt}
+            selectedOption={selectedOption}
+            qty={qty}
+            onPurchase={handlePurchaseClick}
+            onTopUp={handleTopUp}
+            onOptionChange={setSelectedOption}
+            onQuantityChange={setQty}
+          />
         </div>
 
         {/* Full-width Info Tabs in bottom half (below image and CTAs) */}

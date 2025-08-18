@@ -6,16 +6,17 @@ import Hero from "@/src/components/Hero";
 import ProductCard from "@/src/components/ProductCard";
 import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
 import HomePageSkeleton from "@/src/components/HomePageSkeleton";
+import EmptyState from "@/src/components/EmptyState";
 import CategorySidebar from "@/src/components/CategorySidebar";
-import { type CategoryId, type Product } from "@/src/core/products";
 import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
+import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { products, isLoading } = useProductsWithLoading();
 
-  const [category, setCategory] = useState<CategoryId>("all");
+  const [category, setCategory] = useState<string>("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showSuggest, setShowSuggest] = useState(false);
@@ -31,25 +32,17 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Sync from URL/localStorage
+  // Sync from URL/localStorage (accept dynamic category slugs)
   useEffect(() => {
-    const cParam = searchParams.get("category") as CategoryId | null;
+    const cParam = (searchParams.get("category") as string | null) ?? "all";
     const qParam = (searchParams.get("q") as string | null) ?? "";
-    const valid = new Set<CategoryId>([
-      "all",
-      "gaming",
-      "social",
-      "productivity",
-    ]);
-    let initialCategory: CategoryId = valid.has((cParam as CategoryId) ?? "all")
-      ? (cParam as CategoryId) ?? "all"
-      : "all";
+    let initialCategory: string = cParam || "all";
     let initialQ = qParam;
     try {
       const raw = window.localStorage.getItem("products:filters");
       if (raw) {
-        const saved = JSON.parse(raw) as { category?: CategoryId; q?: string };
-        if (!cParam && saved.category && valid.has(saved.category)) {
+        const saved = JSON.parse(raw) as { category?: string; q?: string };
+        if (!cParam && saved.category) {
           initialCategory = saved.category;
         }
         if (!qParam && typeof saved.q === "string") {
@@ -91,38 +84,11 @@ export default function Home() {
 
   const normalized = (s: string) => s.toLowerCase();
 
-  const counts = useMemo(() => {
-    const textFiltered = products.filter((p: Product) => {
-      if (!debouncedQ) return true;
-      const t = `${p.title} ${p.description}`;
-      return t.toLowerCase().includes(debouncedQ.toLowerCase());
-    });
-    return {
-      all: textFiltered.length,
-      gaming: textFiltered.filter((p) => p.category === "gaming").length,
-      social: textFiltered.filter((p) => p.category === "social").length,
-      productivity: textFiltered.filter((p) => p.category === "productivity")
-        .length,
-    } as Record<CategoryId, number>;
-  }, [debouncedQ]);
+  // Use the same optimized counting logic as products page - ALWAYS call hooks
+  const counts = useCategoryCounts(products, debouncedQ);
 
-  const filtered = useMemo(() => {
-    let list: Product[] = products;
-
-    if (debouncedQ) {
-      list = list.filter((p: Product) =>
-        normalized(`${p.title} ${p.description}`).includes(
-          normalized(debouncedQ)
-        )
-      );
-    }
-
-    if (category !== "all") {
-      list = list.filter((p: Product) => p.category === category);
-    }
-
-    return list;
-  }, [products, category, debouncedQ]);
+  // Use the same optimized filtering logic as products page - ALWAYS call hooks
+  const filtered = useProductFilter(products, category, debouncedQ);
 
   // Handle filtering loading state
   useEffect(() => {
@@ -133,6 +99,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [category, debouncedQ]);
 
+  // Early return AFTER all hooks are called
   if (isInitialLoading) {
     return <HomePageSkeleton />;
   }
@@ -199,6 +166,23 @@ export default function Home() {
                 {Array.from({ length: 8 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
                 ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-8">
+                <EmptyState
+                  icon="📦"
+                  title="Không tìm thấy sản phẩm nào"
+                  description={
+                    q
+                      ? "Hãy thử từ khóa khác hoặc xóa bộ lọc."
+                      : "Hiện chưa có sản phẩm để hiển thị."
+                  }
+                  primaryAction={
+                    q
+                      ? { label: "Xem tất cả sản phẩm", href: "/products" }
+                      : { label: "Về trang chủ", href: "/" }
+                  }
+                />
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">

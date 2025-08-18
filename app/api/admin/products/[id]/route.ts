@@ -67,6 +67,13 @@ export async function PUT(
     const { id: productId } = await context.params;
     const updateData = await request.json();
 
+    console.log(
+      "API Update Product: Updating product",
+      productId,
+      "with data:",
+      updateData
+    );
+
     const oldProduct = dataStore.getProduct(productId);
     if (!oldProduct) {
       return NextResponse.json(
@@ -109,6 +116,22 @@ export async function PUT(
       },
       admin.id,
       admin.name
+    );
+
+    console.log("API Update Product: Updated product", {
+      id: updatedProduct?.id,
+      title: updatedProduct?.title,
+      category: updatedProduct?.category,
+      isActive: updatedProduct?.isActive,
+    });
+
+    // Verify the product appears in public products
+    const publicProducts = dataStore.getPublicProducts();
+    const foundInPublic = publicProducts.find((p) => p.id === productId);
+    console.log(
+      "API Update Product: Found in public products:",
+      !!foundInPublic,
+      foundInPublic?.category
     );
 
     // Log admin action

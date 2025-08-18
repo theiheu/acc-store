@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react"; // ensure useEffect imported
 import { useRouter, useParams } from "next/navigation";
 import AdminLayout from "@/src/components/AdminLayout";
 import { withAdminAuth } from "@/src/components/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/ToastProvider";
+import CategorySelect from "@/src/components/CategorySelect";
 import { AdminProduct, type SupplierInfo } from "@/src/core/admin";
-import { CATEGORIES, type ProductOption } from "@/src/core/products";
+import { type ProductOption } from "@/src/core/products";
 import LoadingButton from "@/src/components/LoadingButton";
 import OptionsEditor from "@/src/components/OptionsEditor";
 import LoadingSpinner from "@/src/components/LoadingSpinner";
@@ -53,6 +54,18 @@ function EditProduct() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<
+    Array<{ id: string; name: string; slug: string }>
+  >([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) setCategories(j.data);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (productId) {
@@ -149,6 +162,7 @@ function EditProduct() {
 
     try {
       setSaving(true);
+      console.log("Updating product with data:", formData);
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -370,17 +384,10 @@ function EditProduct() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium">Danh mục</label>
-              <select
+              <CategorySelect
                 value={formData.category}
-                onChange={(e) => handleInputChange("category", e.target.value)}
-                className="mt-1 w-full border rounded-md px-3 py-2"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(slug) => handleInputChange("category", slug)}
+              />
             </div>
 
             {/* Supplier markup */}

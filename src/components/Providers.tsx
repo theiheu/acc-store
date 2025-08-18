@@ -6,6 +6,7 @@ import { GlobalLoadingProvider } from "@/src/components/GlobalLoadingProvider";
 import ToastProvider from "@/src/components/ToastProvider";
 import GlobalLoadingOverlay from "@/src/components/GlobalLoadingOverlay";
 import { DataSyncProvider } from "@/src/components/DataSyncProvider";
+import ErrorBoundary from "@/src/components/ErrorBoundary";
 
 // Inner component to access session data
 function ProvidersInner({ children }: { children: ReactNode }) {
@@ -13,22 +14,26 @@ function ProvidersInner({ children }: { children: ReactNode }) {
   const currentUserEmail = session?.user?.email || undefined;
 
   return (
-    <GlobalLoadingProvider>
-      <ToastProvider>
-        <DataSyncProvider currentUserEmail={currentUserEmail}>
-          {children}
-          {/* Global overlay rendered once at root */}
-          <GlobalLoadingOverlay />
-        </DataSyncProvider>
-      </ToastProvider>
-    </GlobalLoadingProvider>
+    <ErrorBoundary>
+      <GlobalLoadingProvider>
+        <ToastProvider>
+          <DataSyncProvider currentUserEmail={currentUserEmail}>
+            {children}
+            {/* Global overlay rendered once at root */}
+            <GlobalLoadingOverlay />
+          </DataSyncProvider>
+        </ToastProvider>
+      </GlobalLoadingProvider>
+    </ErrorBoundary>
   );
 }
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <SessionProvider>
-      <ProvidersInner>{children}</ProvidersInner>
-    </SessionProvider>
+    <ErrorBoundary>
+      <SessionProvider>
+        <ProvidersInner>{children}</ProvidersInner>
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }
