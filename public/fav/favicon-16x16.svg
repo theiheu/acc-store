@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <style>
+    .stroke { stroke: #111827; stroke-width: 1; }
+    .amber { fill: #F59E0B; }
+    .bg { fill: #FFFFFF; }
+  </style>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="16" height="16" class="bg"/>
+  <!-- Stronger amber tint -->
+  <rect x="1" y="1" width="14" height="14" class="amber" opacity="0.28"/>
+
+  <!-- Simplified shopping cart for 16px -->
+  <g transform="translate(2, 2)">
+    <!-- Cart basket -->
+    <path d="M1 4h8l-1 6H2l-1-6z" class="stroke" fill="none" stroke-linejoin="round"/>
+    <!-- Cart handle -->
+    <path d="M0 2h1l1 2" class="stroke" fill="none" stroke-linecap="round"/>
+    <!-- Cart wheels -->
+    <circle cx="3" cy="12" r="0.8" class="amber"/>
+    <circle cx="7" cy="12" r="0.8" class="amber"/>
+    <!-- Accent -->
+    <circle cx="10" cy="3" r="1" class="amber"/>
+  </g>
+</svg>
+

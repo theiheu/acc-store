@@ -59,7 +59,7 @@ export default function ProductDetailPage() {
     // Hide any global loading from navigation
     hideLoading();
 
-    // Fetch product from API
+    // Fetch product from API or redirect to canonical slug route if possible
     const fetchProduct = async () => {
       if (!id) {
         console.log("No product ID provided");
@@ -69,11 +69,26 @@ export default function ProductDetailPage() {
       }
 
       try {
-        console.log("Fetching product with ID:", id);
+        // Try to resolve canonical route first for backward compatibility
+        const res = await fetch(
+          `/api/products/resolve?id=${encodeURIComponent(id)}`
+        );
+        if (res.ok) {
+          const resolved = await res.json();
+          const cat = resolved?.data?.category;
+          const slug = resolved?.data?.slug;
+          if (cat && slug) {
+            // Redirect to SEO-friendly URL and stop further work
+            router.replace(
+              require("@/src/utils/slug").toProductPath(cat, slug)
+            );
+            return;
+          }
+        }
+
+        // Fallback: fetch by id directly
         const response = await fetch(`/api/products/${id}`);
-        console.log("API response status:", response.status);
         const result = await response.json();
-        console.log("API response data:", result);
 
         if (result.success) {
           setProduct(result.data);

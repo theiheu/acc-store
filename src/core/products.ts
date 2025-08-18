@@ -44,7 +44,66 @@ export type Product = {
   lastModifiedBy?: string;
 };
 
-export const products: Product[] = [];
+export const products: Product[] = [
+  {
+    id: "product-facebook-premium",
+    title: "Facebook Premium",
+    description: "Tài khoản Facebook chất lượng, bảo hành 7 ngày",
+    price: 99000,
+    currency: "VND",
+    imageEmoji: "📘",
+    imageUrl: "/thumbs/facebook.svg",
+    badge: "hot",
+    category: "social",
+    options: [
+      { id: "fb-premium-1", label: "Gói 1 tháng", price: 99000, stock: 25 },
+      { id: "fb-premium-3", label: "Gói 3 tháng", price: 279000, stock: 10 },
+    ],
+  },
+  {
+    id: "product-tiktok-starter",
+    title: "TikTok Starter",
+    description: "Tài khoản TikTok mới, sẵn sàng chạy viral",
+    price: 59000,
+    currency: "VND",
+    imageEmoji: "🎵",
+    imageUrl: "/thumbs/tiktok.svg",
+    badge: "new",
+    category: "social",
+    options: [
+      { id: "tt-starter-basic", label: "Cơ bản", price: 59000, stock: 40 },
+      { id: "tt-starter-plus", label: "Plus", price: 99000, stock: 20 },
+    ],
+  },
+  {
+    id: "product-capcut-pro",
+    title: "CapCut Pro",
+    description: "Tài khoản CapCut Pro chính hãng, đầy đủ tính năng",
+    price: 129000,
+    currency: "VND",
+    imageEmoji: "🎬",
+    imageUrl: "/thumbs/capcut.svg",
+    category: "productivity",
+    options: [
+      { id: "cc-pro-1m", label: "1 tháng", price: 129000, stock: 30 },
+      { id: "cc-pro-12m", label: "12 tháng", price: 1190000, stock: 8 },
+    ],
+  },
+  {
+    id: "product-starter-pack",
+    title: "Starter Pack",
+    description: "Gói tài khoản khởi đầu cho người mới",
+    price: 49000,
+    currency: "VND",
+    imageEmoji: "✨",
+    imageUrl: "/thumbs/starter.svg",
+    category: "gaming",
+    options: [
+      { id: "starter-basic", label: "Cơ bản", price: 49000, stock: 50 },
+      { id: "starter-premium", label: "Premium", price: 89000, stock: 15 },
+    ],
+  },
+];
 
 export function getProductById(id?: string | null) {
   if (!id) return null;

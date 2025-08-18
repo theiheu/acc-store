@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import AuthButton from "@/src/components/AuthButton";
+import { AccStoreLogo } from "@/src/components/branding";
 
 // Shared link styles
 const linkBase =
@@ -53,24 +54,15 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-950/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:dark:bg-gray-950/60 shadow-sm transition-shadow duration-200 hover:shadow-md">
-      <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
+      <div className="mx-auto max-w-5xl px-4 h-22 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="inline-flex items-center gap-2 group">
-          <span className="inline-flex items-center gap-2">
-            <img
-              src="/acc-store-logo.svg"
-              alt="ACC Store"
-              className="h-6 w-6"
-            />
-            <span className="font-semibold tracking-tight relative">
-              ACC Store
-              <span
-                className={`pointer-events-none absolute left-0 -bottom-1 h-0.5 w-full rounded-full bg-amber-400 transition-transform duration-200 origin-left ${
-                  isHome ? "scale-x-100" : "scale-x-0"
-                } group-hover:scale-x-100`}
-              />
-            </span>
-          </span>
+        <Link href="/" className="inline-flex items-center group relative">
+          <AccStoreLogo variant="horizontal" size="xl" />
+          <span
+            className={`pointer-events-none absolute left-0 -bottom-1 h-0.5 w-full rounded-full bg-amber-400 transition-transform duration-200 origin-left ${
+              isHome ? "scale-x-100" : "scale-x-0"
+            } group-hover:scale-x-100`}
+          />
         </Link>
 
         {/* Desktop left links */}

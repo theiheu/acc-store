@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80" role="img" aria-label="ACC Store.VN square logo">
+  <style>
+    :root { color-scheme: light dark; }
+    /* Light mode colors */
+    .stroke { stroke: #111827; }
+    .text-fill { fill: #111827; }
+    .muted { stroke: #6B7280; }
+    .amber { fill: #F59E0B; }
+    .amber-stroke { stroke: #F59E0B; }
+    /* Dark mode overrides */
+    @media (prefers-color-scheme: dark) {
+      .stroke { stroke: #FFFFFF; }
+      .text-fill { fill: #FFFFFF; }
+      .muted { stroke: #9CA3AF; }
+    }
+  </style>
+
+  <!-- Modern shopping cart icon (top) -->
+  <g transform="translate(20, 8)">
+    <!-- Cart basket -->
+    <path d="M5 12h30a1 1 0 0 1 1 1l-2 16a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1L6 13a1 1 0 0 1 1-1z" class="stroke" fill="none" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Cart handle -->
+    <path d="M2 8h5l2 4" class="stroke" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Cart wheels -->
+    <circle cx="14" cy="34" r="2.5" class="amber"/>
+    <circle cx="26" cy="34" r="2.5" class="amber"/>
+    <!-- Wheel spokes -->
+    <path d="M14 32v4M12 34h4" class="stroke" stroke-width="0.8" stroke-linecap="round"/>
+    <path d="M26 32v4M24 34h4" class="stroke" stroke-width="0.8" stroke-linecap="round"/>
+    <!-- Premium badge -->
+    <circle cx="32" cy="10" r="3" class="amber"/>
+    <path d="M31 9l1 1 1-1-1-1-1 1z" fill="white"/>
+  </g>
+
+  <!-- ACC Store text (bottom) -->
+  <g transform="translate(40, 43)">
+    <!-- ACC text (centered) -->
+    <text x="0" y="14" text-anchor="middle" class="text-fill" font-family="'Orbitron', 'Exo 2', 'Rajdhani', monospace" font-size="22" font-weight="800" letter-spacing="-0.5px">ACC</text>
+    <!-- Store text (centered) -->
+    <text x="0" y="28" text-anchor="middle" class="text-fill" font-family="'Orbitron', 'Exo 2', 'Rajdhani', monospace" font-size="13" font-weight="400" letter-spacing="3px" opacity="0.8">STORE.VN</text>
+  </g>
+</svg>

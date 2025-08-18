@@ -18,6 +18,12 @@ export function slugify(input: string): string {
 export function toProductPath(category: string, slug: string): string {
   const safeCategory = slugify(category);
   const safeSlug = slugify(slug);
-  return `/products/${encodeURIComponent(safeCategory)}/${encodeURIComponent(safeSlug)}`;
+  return `/products/${encodeURIComponent(safeCategory)}/${encodeURIComponent(
+    safeSlug
+  )}`;
 }
 
+// Legacy path using id (rewritten via middleware to id under the hood)
+export function toLegacyProductIdPath(id: string): string {
+  return `/products/${encodeURIComponent(id)}`;
+}

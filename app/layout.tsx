@@ -19,7 +19,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ACC Store",
-  description: "Website bán tài khoản với layout Gumroad",
+  description: "Website bán tài khoản Việt Nam với layout Gumroad",
+  icons: {
+    icon: [
+      { url: "/fav/favicon.svg", type: "image/svg+xml" },
+      { url: "/fav/favicon-16x16.svg", sizes: "16x16", type: "image/svg+xml" },
+      { url: "/fav/favicon-32x32.svg", sizes: "32x32", type: "image/svg+xml" },
+    ],
+    shortcut: "/fav/favicon.svg",
+    apple: "/fav/favicon-32x32.svg",
+  },
 };
 
 export default function RootLayout({
@@ -34,7 +43,7 @@ export default function RootLayout({
       >
         <Providers>
           <Navbar />
-          <main className="min-h-[calc(100dvh-7rem)]">
+          <main className="min-h-[calc(100dvh-9rem)]">
             <React.Suspense fallback={<Loader label="Đang tải nội dung..." />}>
               {children}
             </React.Suspense>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth, AdminPermissionGate } from "./AdminAuthProvider";
 import { useDataSync } from "@/src/components/DataSyncProvider";
+import { AccStoreLogo } from "@/src/components/branding";
 
 interface SidebarItem {
   id: string;
@@ -103,23 +104,11 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
-          {/* Admin info */}
-          <div className="flex items-center gap-3 p-4">
-            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-300/10 flex items-center justify-center">
-              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                {adminProfile?.name?.charAt(0).toUpperCase() || "A"}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                {adminProfile?.name || "Admin User"}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                {adminProfile?.email}
-              </p>
-            </div>
-          </div>
+        <div className="h-16 px-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center">
+            <AccStoreLogo variant="horizontal" size="md" />
+          </Link>
 
           {/* Close button for mobile */}
           <button
@@ -128,6 +117,24 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           >
             <span className="text-xl">✕</span>
           </button>
+        </div>
+
+        {/* Admin info */}
+        <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-300/10 flex items-center justify-center">
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {adminProfile?.name?.charAt(0).toUpperCase() || "A"}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+              {adminProfile?.name || "Admin User"}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {adminProfile?.email}
+            </p>
+          </div>
+        </div>
         </div>
 
         {/* Navigation */}

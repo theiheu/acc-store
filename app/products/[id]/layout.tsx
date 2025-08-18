@@ -11,7 +11,7 @@ export async function generateMetadata({
   const p = dataStore.getProduct(id);
   if (!p) return {};
 
-  const title = `${p.title} | Mua tài khoản ${p.category} giá tốt`;
+  const title = `${p.title} | ACC Store`;
   const description =
     p.description || `Mua ${p.title} uy tín, giao dịch nhanh chóng.`;
   const canonical = `/products/${p.category}/${slugify(p.title)}`;

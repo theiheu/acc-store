@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="ACC Store icon">
+  <style>
+    :root { color-scheme: light dark; }
+    /* Light mode colors */
+    .stroke { stroke: #111827; }
+    .muted { stroke: #6B7280; }
+    .amber { fill: #F59E0B; }
+    .amber-stroke { stroke: #F59E0B; }
+    .bg { fill: #FFFFFF; }
+    /* Dark mode overrides */
+    @media (prefers-color-scheme: dark) {
+      .stroke { stroke: #FFFFFF; }
+      .muted { stroke: #9CA3AF; }
+      .bg { fill: #111827; }
+    }
+  </style>
+
+  <!-- Background circle for better favicon visibility -->
+  <circle cx="16" cy="16" r="15" class="bg" stroke="none"/>
+
+  <!-- Modern shopping cart icon (centered and larger for favicon) -->
+  <g transform="translate(8, 6)">
+    <!-- Cart basket -->
+    <path d="M2 8h12a1 1 0 0 1 1 1l-1 8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1L3 9a1 1 0 0 1 1-1z" class="stroke" fill="none" stroke-width="1.8" stroke-linejoin="round"/>
+    <!-- Cart handle -->
+    <path d="M0 4h2l1 4" class="stroke" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Cart wheels -->
+    <circle cx="6" cy="20" r="1.2" class="amber"/>
+    <circle cx="11" cy="20" r="1.2" class="amber"/>
+    <!-- Wheel spokes -->
+    <path d="M6 19.2v1.6M5.2 20h1.6" class="stroke" stroke-width="0.4" stroke-linecap="round"/>
+    <path d="M11 19.2v1.6M10.2 20h1.6" class="stroke" stroke-width="0.4" stroke-linecap="round"/>
+    <!-- Premium badge -->
+    <circle cx="13" cy="5" r="1.5" class="amber"/>
+    <path d="M12.5 4.5l.5.5.5-.5-.5-.5-.5.5z" fill="white"/>
+  </g>
+</svg>
