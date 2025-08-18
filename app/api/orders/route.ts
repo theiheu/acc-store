@@ -154,19 +154,41 @@ export async function POST(request: NextRequest) {
       metadata: { productId, quantity },
     });
 
-    // Call supplier using kioskToken from selected option
+    // Prepare supplier client (allow env fallback)
     const kioskToken =
-      selectedOption?.kioskToken || product.supplier?.kioskToken;
-    if (!kioskToken) {
-      return NextResponse.json(
-        { success: false, error: "Không tìm thấy token API để mua sản phẩm" },
-        { status: 400 }
+      selectedOption?.kioskToken ||
+      process.env.TAPHOAMMO_KIOSK_TOKEN ||
+      undefined;
+
+    let supplier: TapHoaMMOClient;
+    try {
+      supplier = new TapHoaMMOClient({
+        kioskToken,
+      });
+    } catch (e: any) {
+      // Cancel order and refund due to missing/invalid supplier config
+      dataStore.updateOrder(order.id, {
+        status: ORDER_STATUS.CANCELLED,
+        updatedAt: new Date(),
+        cancelledAt: new Date(),
+        adminNotes: "Thiếu cấu hình API nhà cung cấp",
+      });
+      const freshUser = dataStore.getUser(user.id)!;
+      dataStore.updateUser(freshUser.id, {
+        balance: freshUser.balance + totalAmount,
+      });
+      dataStore.createTransaction({
+        userId: freshUser.id,
+        type: "refund",
+        amount: totalAmount,
+        description: `Hoàn tiền do lỗi cấu hình đơn hàng ${order.id}`,
+        orderId: order.id,
+      });
+      return err(
+        "Thiếu cấu hình API nhà cung cấp. Vui lòng liên hệ quản trị.",
+        500
       );
     }
-
-    const supplier = new TapHoaMMOClient({
-      kioskToken,
-    });
 
     const buyResp = await supplier.buyProducts(quantity, promotion);
     if (!buyResp || buyResp.success !== "true" || !buyResp.order_id) {
