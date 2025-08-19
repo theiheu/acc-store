@@ -34,13 +34,21 @@ export default function OrderFilters({
     handleFilterChange(key, date);
   };
 
-  const handleAmountChange = (key: "minAmount" | "maxAmount", value: string) => {
+  const handleAmountChange = (
+    key: "minAmount" | "maxAmount",
+    value: string
+  ) => {
     const amount = value ? parseFloat(value) : undefined;
     handleFilterChange(key, amount);
   };
 
   const hasActiveFilters = Object.entries(localFilters).some(([key, value]) => {
-    if (key === "page" || key === "limit" || key === "sortBy" || key === "sortOrder") {
+    if (
+      key === "page" ||
+      key === "limit" ||
+      key === "sortBy" ||
+      key === "sortOrder"
+    ) {
       return false;
     }
     return value !== undefined && value !== "" && value !== null;
@@ -86,7 +94,9 @@ export default function OrderFilters({
           </label>
           <select
             value={localFilters.status || ""}
-            onChange={(e) => handleFilterChange("status", e.target.value || undefined)}
+            onChange={(e) =>
+              handleFilterChange("status", e.target.value || undefined)
+            }
             disabled={isLoading}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
           >
@@ -106,7 +116,11 @@ export default function OrderFilters({
           </label>
           <input
             type="date"
-            value={localFilters.dateFrom ? localFilters.dateFrom.toISOString().split('T')[0] : ""}
+            value={
+              localFilters.dateFrom
+                ? localFilters.dateFrom.toISOString().split("T")[0]
+                : ""
+            }
             onChange={(e) => handleDateChange("dateFrom", e.target.value)}
             disabled={isLoading}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
@@ -120,7 +134,11 @@ export default function OrderFilters({
           </label>
           <input
             type="date"
-            value={localFilters.dateTo ? localFilters.dateTo.toISOString().split('T')[0] : ""}
+            value={
+              localFilters.dateTo
+                ? localFilters.dateTo.toISOString().split("T")[0]
+                : ""
+            }
             onChange={(e) => handleDateChange("dateTo", e.target.value)}
             disabled={isLoading}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
@@ -167,10 +185,17 @@ export default function OrderFilters({
             Hoàn tiền
           </label>
           <select
-            value={localFilters.hasRefund === undefined ? "" : localFilters.hasRefund.toString()}
+            value={
+              localFilters.hasRefund === undefined
+                ? ""
+                : localFilters.hasRefund.toString()
+            }
             onChange={(e) => {
               const value = e.target.value;
-              handleFilterChange("hasRefund", value === "" ? undefined : value === "true");
+              handleFilterChange(
+                "hasRefund",
+                value === "" ? undefined : value === "true"
+              );
             }}
             disabled={isLoading}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
@@ -187,10 +212,17 @@ export default function OrderFilters({
             Ghi chú admin
           </label>
           <select
-            value={localFilters.hasAdminNotes === undefined ? "" : localFilters.hasAdminNotes.toString()}
+            value={
+              localFilters.hasAdminNotes === undefined
+                ? ""
+                : localFilters.hasAdminNotes.toString()
+            }
             onChange={(e) => {
               const value = e.target.value;
-              handleFilterChange("hasAdminNotes", value === "" ? undefined : value === "true");
+              handleFilterChange(
+                "hasAdminNotes",
+                value === "" ? undefined : value === "true"
+              );
             }}
             disabled={isLoading}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
@@ -198,6 +230,30 @@ export default function OrderFilters({
             <option value="">Tất cả</option>
             <option value="true">Có ghi chú</option>
             <option value="false">Không có ghi chú</option>
+          </select>
+        </div>
+
+        {/* Profit Margin Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Tỷ suất lợi nhuận
+          </label>
+          <select
+            value={(localFilters as any).profitMarginCategory || ""}
+            onChange={(e) =>
+              handleFilterChange(
+                "profitMarginCategory" as any,
+                e.target.value || undefined
+              )
+            }
+            disabled={isLoading}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent disabled:opacity-50"
+          >
+            <option value="">Tất cả</option>
+            <option value="high">Cao (&gt;30%)</option>
+            <option value="medium">Trung bình (10-30%)</option>
+            <option value="low">Thấp (0-10%)</option>
+            <option value="negative">Lỗ (&lt;0%)</option>
           </select>
         </div>
       </div>
@@ -244,7 +300,9 @@ export default function OrderFilters({
       {hasActiveFilters && (
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap gap-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Bộ lọc đang áp dụng:</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Bộ lọc đang áp dụng:
+            </span>
             {localFilters.search && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-300/10 text-amber-700 dark:text-amber-300 text-xs rounded-full">
                 Tìm kiếm: "{localFilters.search}"
@@ -269,7 +327,8 @@ export default function OrderFilters({
             )}
             {(localFilters.dateFrom || localFilters.dateTo) && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-300/10 text-amber-700 dark:text-amber-300 text-xs rounded-full">
-                Thời gian: {localFilters.dateFrom?.toLocaleDateString("vi-VN")} - {localFilters.dateTo?.toLocaleDateString("vi-VN")}
+                Thời gian: {localFilters.dateFrom?.toLocaleDateString("vi-VN")}{" "}
+                - {localFilters.dateTo?.toLocaleDateString("vi-VN")}
                 <button
                   onClick={() => {
                     handleFilterChange("dateFrom", undefined);

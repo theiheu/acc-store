@@ -147,6 +147,52 @@ export interface OrderStats {
   todayOrders: number;
   todayRevenue: number;
   conversionRate: number;
+  // Profit metrics
+  totalProfit: number;
+  averageProfit: number;
+  todayProfit: number;
+  profitMargin: number; // Overall profit margin percentage
+  totalCosts: number;
+}
+
+// Extended order statistics with profit trends
+export interface ExtendedOrderStats extends OrderStats {
+  weekly: {
+    orders: number;
+    revenue: number;
+    profit: number;
+    costs: number;
+  };
+  monthly: {
+    orders: number;
+    revenue: number;
+    profit: number;
+    costs: number;
+  };
+  dailyTrends: Array<{
+    date: string;
+    orders: number;
+    revenue: number;
+    profit: number;
+    costs: number;
+    completed: number;
+    profitMargin: number;
+  }>;
+  topProductsByProfit: Array<{
+    productId: string;
+    productTitle: string;
+    orderCount: number;
+    revenue: number;
+    profit: number;
+    profitMargin: number;
+    costs: number;
+  }>;
+  profitDistribution: {
+    highMargin: { count: number; percentage: number }; // >30%
+    mediumMargin: { count: number; percentage: number }; // 10-30%
+    lowMargin: { count: number; percentage: number }; // 0-10%
+    negative: { count: number; percentage: number }; // <0%
+  };
 }
 
 // Dashboard statistics types
@@ -408,4 +454,118 @@ export function calculateProfitMargin(
 ): number {
   if (costPrice === 0) return 0;
   return ((sellingPrice - costPrice) / sellingPrice) * 100;
+}
+
+// Calculate profit for an order
+export function calculateOrderProfit(
+  order: AdminOrder,
+  product?: Product
+): { profit: number; cost: number; margin: number } {
+  if (!product) {
+    return { profit: 0, cost: 0, margin: 0 };
+  }
+
+  let costPrice = 0;
+  let sellingPrice = order.unitPrice;
+
+  // Get cost from product option if available
+  if (order.selectedOptionId && product.options) {
+    const selectedOption = product.options.find(
+      (opt) => opt.id === order.selectedOptionId
+    );
+    if (selectedOption?.basePrice) {
+      costPrice = selectedOption.basePrice;
+    }
+  }
+
+  // Fallback to product base price or estimate
+  if (costPrice === 0) {
+    // If no cost data available, estimate based on selling price (conservative 70% cost ratio)
+    costPrice = sellingPrice * 0.7;
+  }
+
+  const totalCost = costPrice * order.quantity;
+  const profit = order.totalAmount - totalCost;
+  const margin = calculateProfitMargin(order.totalAmount, totalCost);
+
+  return {
+    profit,
+    cost: totalCost,
+    margin,
+  };
+}
+
+// Calculate profit for multiple orders
+export function calculateOrdersProfit(
+  orders: AdminOrder[],
+  productsMap: Map<string, Product>
+): { totalProfit: number; totalCosts: number; averageMargin: number } {
+  let totalProfit = 0;
+  let totalCosts = 0;
+  let totalRevenue = 0;
+
+  orders.forEach((order) => {
+    const product = productsMap.get(order.productId);
+    const { profit, cost } = calculateOrderProfit(order, product);
+
+    totalProfit += profit;
+    totalCosts += cost;
+    totalRevenue += order.totalAmount;
+  });
+
+  const averageMargin =
+    totalRevenue > 0 ? calculateProfitMargin(totalRevenue, totalCosts) : 0;
+
+  return {
+    totalProfit,
+    totalCosts,
+    averageMargin,
+  };
+}
+
+// Get profit margin category
+export function getProfitMarginCategory(
+  margin: number
+): "high" | "medium" | "low" | "negative" {
+  if (margin < 0) return "negative";
+  if (margin < 10) return "low";
+  if (margin < 30) return "medium";
+  return "high";
+}
+
+// Format profit margin with color coding
+export function formatProfitMargin(margin: number): {
+  text: string;
+  color: string;
+  bgColor: string;
+} {
+  const category = getProfitMarginCategory(margin);
+  const text = `${margin.toFixed(1)}%`;
+
+  switch (category) {
+    case "high":
+      return {
+        text,
+        color: "text-green-700 dark:text-green-400",
+        bgColor: "bg-green-100 dark:bg-green-300/10",
+      };
+    case "medium":
+      return {
+        text,
+        color: "text-blue-700 dark:text-blue-400",
+        bgColor: "bg-blue-100 dark:bg-blue-300/10",
+      };
+    case "low":
+      return {
+        text,
+        color: "text-yellow-700 dark:text-yellow-400",
+        bgColor: "bg-yellow-100 dark:bg-yellow-300/10",
+      };
+    case "negative":
+      return {
+        text,
+        color: "text-red-700 dark:text-red-400",
+        bgColor: "bg-red-100 dark:bg-red-300/10",
+      };
+  }
 }

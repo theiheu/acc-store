@@ -9,6 +9,8 @@ import {
   OrderSearchFilters,
   PaginatedResponse,
   OrderStats,
+  calculateOrderProfit,
+  calculateOrdersProfit,
 } from "@/src/core/admin";
 import { dataStore } from "@/src/core/data-store";
 import { ORDER_STATUS, orderStatusToViText } from "@/src/core/constants";
@@ -70,6 +72,12 @@ export async function GET(request: NextRequest) {
         (opt) => opt.id === order.selectedOptionId
       );
 
+      // Calculate profit for completed orders
+      const profitData =
+        order.status === ORDER_STATUS.COMPLETED
+          ? calculateOrderProfit(order, product)
+          : { profit: 0, cost: 0, margin: 0 };
+
       return {
         ...order,
         customerEmail: user?.email || "Unknown",
@@ -81,7 +89,11 @@ export async function GET(request: NextRequest) {
         productCategory: product?.category,
         selectedOptionLabel: selectedOption?.label,
         statusHistory: [], // TODO: Implement status history tracking
-      };
+        // Add profit information
+        profit: profitData.profit,
+        cost: profitData.cost,
+        profitMargin: profitData.margin,
+      } as AdminOrder & { profit: number; cost: number; profitMargin: number };
     });
 
     // Apply filters
@@ -207,7 +219,31 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
     const paginatedOrders = enrichedOrders.slice(offset, offset + limit);
 
-    // Calculate statistics
+    // Calculate statistics with profit metrics
+    const completedOrders = enrichedOrders.filter(
+      (o) => o.status === ORDER_STATUS.COMPLETED
+    );
+
+    const profitData = calculateOrdersProfit(
+      completedOrders as any,
+      productsMap
+    );
+
+    const todayOrders = enrichedOrders.filter((o) => {
+      const today = new Date();
+      const orderDate = new Date(o.createdAt);
+      return orderDate.toDateString() === today.toDateString();
+    });
+
+    const todayCompletedOrders = todayOrders.filter(
+      (o) => o.status === ORDER_STATUS.COMPLETED
+    );
+
+    const todayProfitData = calculateOrdersProfit(
+      todayCompletedOrders as any,
+      productsMap
+    );
+
     const stats: OrderStats = {
       totalOrders: enrichedOrders.length,
       pendingOrders: enrichedOrders.filter(
@@ -216,45 +252,37 @@ export async function GET(request: NextRequest) {
       processingOrders: enrichedOrders.filter(
         (o) => o.status === ORDER_STATUS.PROCESSING
       ).length,
-      completedOrders: enrichedOrders.filter(
-        (o) => o.status === ORDER_STATUS.COMPLETED
-      ).length,
+      completedOrders: completedOrders.length,
       cancelledOrders: enrichedOrders.filter(
         (o) => o.status === ORDER_STATUS.CANCELLED
       ).length,
       refundedOrders: enrichedOrders.filter(
         (o) => o.status === ORDER_STATUS.REFUNDED
       ).length,
-      totalRevenue: enrichedOrders
-        .filter((o) => o.status === ORDER_STATUS.COMPLETED)
-        .reduce((sum, o) => sum + o.totalAmount, 0),
+      totalRevenue: completedOrders.reduce((sum, o) => sum + o.totalAmount, 0),
       averageOrderValue:
         enrichedOrders.length > 0
           ? enrichedOrders.reduce((sum, o) => sum + o.totalAmount, 0) /
             enrichedOrders.length
           : 0,
-      todayOrders: enrichedOrders.filter((o) => {
-        const today = new Date();
-        const orderDate = new Date(o.createdAt);
-        return orderDate.toDateString() === today.toDateString();
-      }).length,
-      todayRevenue: enrichedOrders
-        .filter((o) => {
-          const today = new Date();
-          const orderDate = new Date(o.createdAt);
-          return (
-            orderDate.toDateString() === today.toDateString() &&
-            o.status === ORDER_STATUS.COMPLETED
-          );
-        })
-        .reduce((sum, o) => sum + o.totalAmount, 0),
+      todayOrders: todayOrders.length,
+      todayRevenue: todayCompletedOrders.reduce(
+        (sum, o) => sum + o.totalAmount,
+        0
+      ),
       conversionRate:
         enrichedOrders.length > 0
-          ? (enrichedOrders.filter((o) => o.status === ORDER_STATUS.COMPLETED)
-              .length /
-              enrichedOrders.length) *
-            100
+          ? (completedOrders.length / enrichedOrders.length) * 100
           : 0,
+      // Profit metrics
+      totalProfit: profitData.totalProfit,
+      averageProfit:
+        completedOrders.length > 0
+          ? profitData.totalProfit / completedOrders.length
+          : 0,
+      todayProfit: todayProfitData.totalProfit,
+      profitMargin: profitData.averageMargin,
+      totalCosts: profitData.totalCosts,
     };
 
     const response: PaginatedResponse<AdminOrder> = {

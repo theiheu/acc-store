@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AdminOrder, OrderSearchFilters } from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import OrderStatusBadge from "./OrderStatusBadge";
+import ProfitMarginBadge, { ProfitInfo } from "./ProfitMarginBadge";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 
 interface OrderTableProps {
@@ -291,6 +292,23 @@ export default function OrderTable({
                             </span>
                           </div>
                         )}
+
+                        {/* Profit Information */}
+                        {(order as any).profit !== undefined && (
+                          <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border">
+                            <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Thông tin lợi nhuận
+                            </h4>
+                            <ProfitInfo
+                              profit={(order as any).profit || 0}
+                              cost={(order as any).cost || 0}
+                              margin={(order as any).profitMargin || 0}
+                              revenue={order.totalAmount}
+                              size="sm"
+                            />
+                          </div>
+                        )}
+
                         {order.adminNotes && (
                           <div className="md:col-span-2 lg:col-span-3">
                             <span className="font-medium text-gray-700 dark:text-gray-300">

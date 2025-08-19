@@ -5,7 +5,12 @@ import AdminLayout from "@/src/components/layout/AdminLayout";
 import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/providers/ToastProvider";
-import { AdminOrder, OrderSearchFilters, PaginatedResponse, OrderStats } from "@/src/core/admin";
+import {
+  AdminOrder,
+  OrderSearchFilters,
+  PaginatedResponse,
+  OrderStats,
+} from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import OrderFilters from "@/src/components/admin/orders/OrderFilters";
 import OrderTable from "@/src/components/admin/orders/OrderTable";
@@ -37,7 +42,7 @@ function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       // Build query parameters
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
@@ -87,27 +92,28 @@ function AdminOrdersPage() {
     setSelectedOrders([]);
   };
 
-  const handleSort = (sortBy: OrderSearchFilters["sortBy"], sortOrder: "asc" | "desc") => {
-    setFilters(prev => ({ ...prev, sortBy, sortOrder, page: 1 }));
+  const handleSort = (
+    sortBy: OrderSearchFilters["sortBy"],
+    sortOrder: "asc" | "desc"
+  ) => {
+    setFilters((prev) => ({ ...prev, sortBy, sortOrder, page: 1 }));
   };
 
   const handlePageChange = (page: number) => {
-    setFilters(prev => ({ ...prev, page }));
+    setFilters((prev) => ({ ...prev, page }));
   };
 
   const handleSelectOrder = (orderId: string) => {
-    setSelectedOrders(prev => 
-      prev.includes(orderId) 
-        ? prev.filter(id => id !== orderId)
+    setSelectedOrders((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
         : [...prev, orderId]
     );
   };
 
   const handleOrderUpdate = (updatedOrder: AdminOrder) => {
-    setOrders(prev => 
-      prev.map(order => 
-        order.id === updatedOrder.id ? updatedOrder : order
-      )
+    setOrders((prev) =>
+      prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
     );
     // Refresh stats
     fetchOrders();
@@ -140,7 +146,7 @@ function AdminOrdersPage() {
       <div className="space-y-6">
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -204,6 +210,44 @@ function AdminOrdersPage() {
                 </div>
               </div>
             </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Lợi nhuận
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(stats.totalProfit || 0)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Tỷ suất: {(stats.profitMargin || 0).toFixed(1)}%
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-300/10 rounded-full flex items-center justify-center">
+                  <span className="text-xl">📈</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Chi phí
+                  </p>
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {formatCurrency(stats.totalCosts || 0)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Hôm nay: {formatCurrency(stats.todayProfit || 0)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-300/10 rounded-full flex items-center justify-center">
+                  <span className="text-xl">📊</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -259,9 +303,11 @@ function AdminOrdersPage() {
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                Hiển thị {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} trong tổng số {pagination.total} đơn hàng
+                Hiển thị {(pagination.page - 1) * pagination.limit + 1} -{" "}
+                {Math.min(pagination.page * pagination.limit, pagination.total)}{" "}
+                trong tổng số {pagination.total} đơn hàng
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
@@ -270,11 +316,11 @@ function AdminOrdersPage() {
                 >
                   ← Trước
                 </button>
-                
+
                 <span className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                   Trang {pagination.page} / {pagination.totalPages}
                 </span>
-                
+
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={!pagination.hasNext || loading}
