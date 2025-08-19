@@ -155,7 +155,14 @@ export async function getCurrentAdmin(): Promise<AdminProfile | null> {
 export async function logAdminAction(
   adminId: string,
   action: string,
-  targetType: "user" | "product" | "order" | "system",
+  targetType:
+    | "user"
+    | "product"
+    | "order"
+    | "system"
+    | "topup-request"
+    | "analytics"
+    | "report",
   targetId?: string,
   description?: string,
   metadata?: Record<string, any>

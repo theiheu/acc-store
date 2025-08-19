@@ -102,7 +102,7 @@ export default function ProductPurchaseForm({
         <button
           type="button"
           onClick={handleQuantityDecrease}
-          className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
           aria-label="Giảm"
         >
           −
@@ -116,7 +116,7 @@ export default function ProductPurchaseForm({
         <button
           type="button"
           onClick={handleQuantityIncrease}
-          className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+          className="h-9 w-9 rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
           aria-label="Tăng"
         >
           +
@@ -128,7 +128,7 @@ export default function ProductPurchaseForm({
         <button
           onClick={onPurchase}
           disabled={!stockInfo.isInStock}
-          className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           Mua ngay
         </button>

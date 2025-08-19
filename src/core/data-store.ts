@@ -12,6 +12,22 @@ import { Product, products } from "./products";
 import { User } from "./auth";
 import { Category } from "./categories";
 import { slugify } from "@/src/utils/slug";
+import {
+  ExpenseEntry,
+  ProfitAnalysis,
+  ProductCostBreakdown,
+  ROIAnalysis,
+  ProfitAlert,
+  ProfitForecast,
+  ExpenseCategory,
+  calculateGrossProfit,
+  calculateNetProfit,
+  calculateGrossMargin,
+  calculateNetMargin,
+  calculateROI,
+  allocateOperationalCosts,
+  PROFIT_ALERT_THRESHOLDS,
+} from "./profit";
 
 // Server-only persistence utilities (guarded to avoid bundling issues on client)
 const __isServer = typeof window === "undefined";
@@ -57,6 +73,9 @@ class DataStore {
   private listeners: EventListener[] = [];
   // Orders are persisted in a separate file; basic in-memory map for now
   private orders: Map<string, import("./admin").Order> = new Map();
+  // Profit analysis data
+  private expenses: Map<string, ExpenseEntry> = new Map();
+  private profitAlerts: Map<string, ProfitAlert> = new Map();
 
   // === Persistence (server-only) ===
   private baseDir = __isServer ? __path.join(process.cwd(), ".data") : "";
@@ -70,6 +89,10 @@ class DataStore {
     activities: __isServer ? __path.join(this.baseDir, "activities.json") : "",
     orders: __isServer ? __path.join(this.baseDir, "orders.json") : "",
     categories: __isServer ? __path.join(this.baseDir, "categories.json") : "",
+    expenses: __isServer ? __path.join(this.baseDir, "expenses.json") : "",
+    profitAlerts: __isServer
+      ? __path.join(this.baseDir, "profit-alerts.json")
+      : "",
   };
 
   private saveTimer: any = null;
@@ -136,6 +159,16 @@ class DataStore {
       __fs.writeFileSync(
         this.files.categories,
         toJSON(Array.from(this.categories.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.expenses,
+        toJSON(Array.from(this.expenses.values())),
+        "utf-8"
+      );
+      __fs.writeFileSync(
+        this.files.profitAlerts,
+        toJSON(Array.from(this.profitAlerts.values())),
         "utf-8"
       );
     } catch (e) {
@@ -216,6 +249,22 @@ class DataStore {
         categories.forEach((c) => {
           reviveDates(c);
           this.categories.set(c.id, c);
+        });
+      }
+
+      const expenses = parseJSON(this.files.expenses);
+      if (Array.isArray(expenses)) {
+        expenses.forEach((e) => {
+          reviveDates(e);
+          this.expenses.set(e.id, e);
+        });
+      }
+
+      const profitAlerts = parseJSON(this.files.profitAlerts);
+      if (Array.isArray(profitAlerts)) {
+        profitAlerts.forEach((a) => {
+          reviveDates(a);
+          this.profitAlerts.set(a.id, a);
         });
       }
     } catch (e) {
@@ -534,33 +583,58 @@ class DataStore {
   // Analytics methods for real dashboard statistics
   getRevenueData(
     days: number = 30
+  ): Array<{ date: string; revenue: number; orders: number }>;
+  getRevenueData(
+    startDate: Date,
+    endDate: Date
+  ): Array<{ date: string; revenue: number; orders: number }>;
+  getRevenueData(
+    daysOrStartDate: number | Date = 30,
+    endDate?: Date
   ): Array<{ date: string; revenue: number; orders: number }> {
+    const { ORDER_STATUS } = require("./constants");
     const data = [];
-    const transactions = Array.from(this.transactions.values());
+    const orders = Array.from(this.orders.values());
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+    let startDate: Date;
+    let actualEndDate: Date;
 
-      // Filter transactions for this date
-      const dayTransactions = transactions.filter((tx) => {
-        const txDate = new Date(tx.createdAt).toISOString().split("T")[0];
-        return (
-          txDate === dateStr && (tx.type === "purchase" || tx.type === "debit")
-        );
+    if (typeof daysOrStartDate === "number") {
+      // Legacy behavior: use days from today
+      const days = daysOrStartDate;
+      actualEndDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+    } else {
+      // New behavior: use specific date range
+      startDate = daysOrStartDate;
+      actualEndDate = endDate || new Date();
+    }
+
+    // Generate data for each day in the range
+    const currentDate = new Date(startDate);
+    while (currentDate <= actualEndDate) {
+      const dateStr = currentDate.toISOString().split("T")[0];
+
+      // Filter completed orders for this date
+      const dayOrders = orders.filter((order) => {
+        const orderDate = new Date(order.createdAt).toISOString().split("T")[0];
+        return orderDate === dateStr && order.status === ORDER_STATUS.COMPLETED;
       });
 
-      const revenue = dayTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-      const orders = dayTransactions.filter(
-        (tx) => tx.type === "purchase"
-      ).length;
+      const revenue = dayOrders.reduce(
+        (sum, order) => sum + order.totalAmount,
+        0
+      );
+      const orderCount = dayOrders.length;
 
       data.push({
         date: dateStr,
         revenue,
-        orders,
+        orders: orderCount,
       });
+
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     return data;
@@ -568,14 +642,37 @@ class DataStore {
 
   getUserGrowthData(
     days: number = 30
+  ): Array<{ date: string; newUsers: number; totalUsers: number }>;
+  getUserGrowthData(
+    startDate: Date,
+    endDate: Date
+  ): Array<{ date: string; newUsers: number; totalUsers: number }>;
+  getUserGrowthData(
+    daysOrStartDate: number | Date = 30,
+    endDate?: Date
   ): Array<{ date: string; newUsers: number; totalUsers: number }> {
     const data = [];
     const users = Array.from(this.users.values());
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split("T")[0];
+    let startDate: Date;
+    let actualEndDate: Date;
+
+    if (typeof daysOrStartDate === "number") {
+      // Legacy behavior: use days from today
+      const days = daysOrStartDate;
+      actualEndDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+    } else {
+      // New behavior: use specific date range
+      startDate = daysOrStartDate;
+      actualEndDate = endDate || new Date();
+    }
+
+    // Generate data for each day in the range
+    const currentDate = new Date(startDate);
+    while (currentDate <= actualEndDate) {
+      const dateStr = currentDate.toISOString().split("T")[0];
 
       // Count new users for this date
       const newUsers = users.filter((user) => {
@@ -585,7 +682,7 @@ class DataStore {
 
       // Count total users up to this date
       const totalUsers = users.filter((user) => {
-        return new Date(user.createdAt) <= date;
+        return new Date(user.createdAt) <= currentDate;
       }).length;
 
       data.push({
@@ -593,9 +690,205 @@ class DataStore {
         newUsers,
         totalUsers,
       });
+
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     return data;
+  }
+
+  // Advanced analytics methods
+  getConversionRateData(
+    daysOrStartDate: number | Date = 30,
+    endDate?: Date
+  ): Array<{
+    date: string;
+    visitors: number;
+    conversions: number;
+    rate: number;
+  }> {
+    const data = [];
+    const users = Array.from(this.users.values());
+    const transactions = Array.from(this.transactions.values());
+
+    let startDate: Date;
+    let actualEndDate: Date;
+
+    if (typeof daysOrStartDate === "number") {
+      const days = daysOrStartDate;
+      actualEndDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+    } else {
+      startDate = daysOrStartDate;
+      actualEndDate = endDate || new Date();
+    }
+
+    const currentDate = new Date(startDate);
+    while (currentDate <= actualEndDate) {
+      const dateStr = currentDate.toISOString().split("T")[0];
+
+      // Count new users (visitors) for this date
+      const visitors = users.filter((user) => {
+        const userDate = new Date(user.createdAt).toISOString().split("T")[0];
+        return userDate === dateStr;
+      }).length;
+
+      // Count conversions (purchases) for this date
+      const conversions = transactions.filter((tx) => {
+        const txDate = new Date(tx.createdAt).toISOString().split("T")[0];
+        return txDate === dateStr && tx.type === "purchase";
+      }).length;
+
+      const rate = visitors > 0 ? (conversions / visitors) * 100 : 0;
+
+      data.push({
+        date: dateStr,
+        visitors,
+        conversions,
+        rate,
+      });
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return data;
+  }
+
+  getProductPerformanceData(
+    daysOrStartDate: number | Date = 30,
+    endDate?: Date
+  ): Array<{
+    productId: string;
+    productTitle: string;
+    views: number;
+    sales: number;
+    revenue: number;
+    conversionRate: number;
+  }> {
+    const products = Array.from(this.products.values());
+    const transactions = Array.from(this.transactions.values());
+
+    let startDate: Date;
+    let actualEndDate: Date;
+
+    if (typeof daysOrStartDate === "number") {
+      const days = daysOrStartDate;
+      actualEndDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+    } else {
+      startDate = daysOrStartDate;
+      actualEndDate = endDate || new Date();
+    }
+
+    return products
+      .map((product) => {
+        // Filter transactions for this product in the date range
+        const productTransactions = transactions.filter((tx) => {
+          const txDate = new Date(tx.createdAt);
+          return (
+            txDate >= startDate &&
+            txDate <= actualEndDate &&
+            tx.type === "purchase" &&
+            tx.description?.includes(product.title)
+          );
+        });
+
+        const sales = productTransactions.length;
+        const revenue = productTransactions.reduce(
+          (sum, tx) => sum + Math.abs(tx.amount),
+          0
+        );
+
+        // Mock views data (in a real app, you'd track this)
+        const views = Math.max(sales * (Math.random() * 10 + 5), sales);
+        const conversionRate = views > 0 ? (sales / views) * 100 : 0;
+
+        return {
+          productId: product.id,
+          productTitle: product.title,
+          views: Math.floor(views),
+          sales,
+          revenue,
+          conversionRate,
+        };
+      })
+      .filter((item) => item.sales > 0 || item.views > 0)
+      .sort((a, b) => b.revenue - a.revenue);
+  }
+
+  getTopCustomersData(
+    limit: number = 10,
+    daysOrStartDate: number | Date = 30,
+    endDate?: Date
+  ): Array<{
+    userId: string;
+    userName: string;
+    totalSpent: number;
+    orderCount: number;
+    averageOrderValue: number;
+    lastOrderDate: Date;
+  }> {
+    const users = Array.from(this.users.values());
+    const transactions = Array.from(this.transactions.values());
+
+    let startDate: Date;
+    let actualEndDate: Date;
+
+    if (typeof daysOrStartDate === "number") {
+      const days = daysOrStartDate;
+      actualEndDate = new Date();
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - (days - 1));
+    } else {
+      startDate = daysOrStartDate;
+      actualEndDate = endDate || new Date();
+    }
+
+    return users
+      .map((user) => {
+        const userTransactions = transactions.filter((tx) => {
+          const txDate = new Date(tx.createdAt);
+          return (
+            tx.userId === user.id &&
+            txDate >= startDate &&
+            txDate <= actualEndDate &&
+            tx.type === "purchase"
+          );
+        });
+
+        if (userTransactions.length === 0) return null;
+
+        const totalSpent = userTransactions.reduce(
+          (sum, tx) => sum + Math.abs(tx.amount),
+          0
+        );
+        const orderCount = userTransactions.length;
+        const averageOrderValue = totalSpent / orderCount;
+        const lastOrderDate = new Date(
+          Math.max(...userTransactions.map((tx) => tx.createdAt.getTime()))
+        );
+
+        return {
+          userId: user.id,
+          userName: user.name,
+          totalSpent,
+          orderCount,
+          averageOrderValue,
+          lastOrderDate,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.totalSpent - a!.totalSpent)
+      .slice(0, limit) as Array<{
+      userId: string;
+      userName: string;
+      totalSpent: number;
+      orderCount: number;
+      averageOrderValue: number;
+      lastOrderDate: Date;
+    }>;
   }
 
   // Category operations
@@ -1208,35 +1501,55 @@ class DataStore {
   getStats() {
     const users = this.getUsers();
     const products = this.getProducts();
-    const transactions = this.getTransactions();
 
     const activeUsers = users.filter((u) => u.status === "active").length;
     const activeProducts = products.filter((p) => p.isActive).length;
-    const totalRevenue = transactions
-      .filter((tx) => tx.type === "purchase")
-      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+
+    // Get accurate order statistics
+    const orderStats = this.getOrderStatistics();
 
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const monthlyRevenue = transactions
-      .filter((tx) => tx.type === "purchase" && tx.createdAt >= monthStart)
-      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+    // Get monthly statistics
+    const monthlyStats = this.getOrderStatistics(monthStart, new Date());
 
-    const totalOrders = users.reduce((sum, user) => sum + user.totalOrders, 0);
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    // Calculate top-selling products based on actual order data
+    const { ORDER_STATUS } = require("./constants");
+    const completedOrders = Array.from(this.orders.values()).filter(
+      (order) => order.status === ORDER_STATUS.COMPLETED
+    );
 
-    // Calculate top-selling products based on sold count
-    const topSellingProducts = products
-      .filter((p) => p.sold > 0)
-      .sort((a, b) => b.sold - a.sold)
+    const productSales = new Map<
+      string,
+      { count: number; revenue: number; title: string }
+    >();
+
+    completedOrders.forEach((order) => {
+      const product = this.products.get(order.productId);
+      if (product) {
+        const existing = productSales.get(order.productId) || {
+          count: 0,
+          revenue: 0,
+          title: product.title,
+        };
+        productSales.set(order.productId, {
+          count: existing.count + order.quantity,
+          revenue: existing.revenue + order.totalAmount,
+          title: existing.title,
+        });
+      }
+    });
+
+    const topSellingProducts = Array.from(productSales.entries())
+      .sort((a, b) => b[1].count - a[1].count)
       .slice(0, 5)
-      .map((product) => ({
-        productId: product.id,
-        productTitle: product.title,
-        salesCount: product.sold,
-        revenue: product.sold * (product.price ?? 0),
+      .map(([productId, data]) => ({
+        productId,
+        productTitle: data.title,
+        salesCount: data.count,
+        revenue: data.revenue,
       }));
 
     return {
@@ -1244,13 +1557,17 @@ class DataStore {
       activeUsers,
       totalProducts: products.length,
       activeProducts,
-      totalOrders,
-      pendingOrders: 0, // Would be calculated from actual orders
-      totalRevenue,
-      monthlyRevenue,
-      averageOrderValue,
+      totalOrders: orderStats.totalOrders,
+      pendingOrders: orderStats.pendingOrders,
+      totalRevenue: orderStats.totalRevenue,
+      monthlyRevenue: monthlyStats.totalRevenue,
+      averageOrderValue: orderStats.averageOrderValue,
       topSellingProducts,
       recentActivity: this.getRecentActivity(5),
+      // Add profit metrics
+      totalProfit: orderStats.totalProfit,
+      profitMargin: orderStats.profitMargin,
+      totalCosts: orderStats.totalCosts,
     };
   }
 
@@ -1311,6 +1628,689 @@ class DataStore {
     } catch (error) {
       console.error("Failed to load users from file:", error);
     }
+  }
+
+  // === PROFIT ANALYSIS METHODS ===
+
+  // Get order statistics with accurate profit calculations
+  getOrderStatistics(
+    startDate?: Date,
+    endDate?: Date
+  ): import("./admin").OrderStats {
+    const { ORDER_STATUS } = require("./constants");
+
+    let orders = Array.from(this.orders.values());
+
+    if (startDate && endDate) {
+      orders = orders.filter(
+        (order) => order.createdAt >= startDate && order.createdAt <= endDate
+      );
+    }
+
+    const completedOrders = orders.filter(
+      (order) => order.status === ORDER_STATUS.COMPLETED
+    );
+    const totalRevenue = completedOrders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0
+    );
+
+    // Calculate actual costs and profit
+    let totalCosts = 0;
+    let totalProfit = 0;
+
+    completedOrders.forEach((order) => {
+      const product = this.products.get(order.productId);
+      if (product) {
+        let unitCost = 0;
+
+        // Get actual cost from selected option or product
+        if (order.selectedOptionId && product.options) {
+          const selectedOption = product.options.find(
+            (opt) => opt.id === order.selectedOptionId
+          );
+          if (selectedOption) {
+            unitCost = selectedOption.basePrice || selectedOption.price * 0.7;
+          }
+        } else if (product.price) {
+          unitCost = product.price * 0.7;
+        }
+
+        const orderCost = unitCost * order.quantity;
+        totalCosts += orderCost;
+        totalProfit += order.totalAmount - orderCost;
+      }
+    });
+
+    const today = new Date();
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const todayOrders = orders.filter((order) => order.createdAt >= todayStart);
+    const todayCompletedOrders = todayOrders.filter(
+      (order) => order.status === ORDER_STATUS.COMPLETED
+    );
+    const todayRevenue = todayCompletedOrders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0
+    );
+
+    let todayProfit = 0;
+    todayCompletedOrders.forEach((order) => {
+      const product = this.products.get(order.productId);
+      if (product) {
+        let unitCost = 0;
+        if (order.selectedOptionId && product.options) {
+          const selectedOption = product.options.find(
+            (opt) => opt.id === order.selectedOptionId
+          );
+          if (selectedOption) {
+            unitCost = selectedOption.basePrice || selectedOption.price * 0.7;
+          }
+        } else if (product.price) {
+          unitCost = product.price * 0.7;
+        }
+        todayProfit += order.totalAmount - unitCost * order.quantity;
+      }
+    });
+
+    return {
+      totalOrders: orders.length,
+      pendingOrders: orders.filter(
+        (order) => order.status === ORDER_STATUS.PENDING
+      ).length,
+      processingOrders: orders.filter(
+        (order) => order.status === ORDER_STATUS.PROCESSING
+      ).length,
+      completedOrders: completedOrders.length,
+      cancelledOrders: orders.filter(
+        (order) => order.status === ORDER_STATUS.CANCELLED
+      ).length,
+      refundedOrders: orders.filter(
+        (order) => order.status === ORDER_STATUS.REFUNDED
+      ).length,
+      totalRevenue,
+      averageOrderValue:
+        completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0,
+      todayOrders: todayOrders.length,
+      todayRevenue,
+      conversionRate:
+        orders.length > 0 ? (completedOrders.length / orders.length) * 100 : 0,
+      totalProfit,
+      averageProfit:
+        completedOrders.length > 0 ? totalProfit / completedOrders.length : 0,
+      todayProfit,
+      profitMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
+      totalCosts,
+    };
+  }
+
+  // Expense management
+  createExpense(
+    expenseData: Omit<ExpenseEntry, "id" | "createdAt" | "updatedAt">
+  ): ExpenseEntry {
+    const expense: ExpenseEntry = {
+      ...expenseData,
+      id: `expense-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 11)}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    this.expenses.set(expense.id, expense);
+    this.scheduleSave();
+    return expense;
+  }
+
+  getExpenses(
+    category?: ExpenseCategory,
+    startDate?: Date,
+    endDate?: Date
+  ): ExpenseEntry[] {
+    let expenses = Array.from(this.expenses.values());
+
+    if (category) {
+      expenses = expenses.filter((e) => e.category === category);
+    }
+
+    if (startDate && endDate) {
+      expenses = expenses.filter(
+        (e) => e.date >= startDate && e.date <= endDate
+      );
+    }
+
+    return expenses.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }
+
+  updateExpense(
+    id: string,
+    updates: Partial<ExpenseEntry>
+  ): ExpenseEntry | null {
+    const expense = this.expenses.get(id);
+    if (!expense) return null;
+
+    const updatedExpense = {
+      ...expense,
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    this.expenses.set(id, updatedExpense);
+    this.scheduleSave();
+    return updatedExpense;
+  }
+
+  deleteExpense(id: string): boolean {
+    const deleted = this.expenses.delete(id);
+    if (deleted) {
+      this.scheduleSave();
+    }
+    return deleted;
+  }
+
+  // Product cost breakdown calculation
+  calculateProductCostBreakdown(
+    productId: string,
+    startDate: Date,
+    endDate: Date
+  ): ProductCostBreakdown | null {
+    const { ORDER_STATUS } = require("./constants");
+    const product = this.products.get(productId);
+    if (!product) return null;
+
+    // Get orders for this product in the date range
+    const productOrders = Array.from(this.orders.values()).filter(
+      (order) =>
+        order.productId === productId &&
+        order.createdAt >= startDate &&
+        order.createdAt <= endDate &&
+        order.status === ORDER_STATUS.COMPLETED
+    );
+
+    if (productOrders.length === 0) {
+      return {
+        productId,
+        productTitle: product.title,
+        basePrice: 0,
+        transactionFees: 0,
+        operationalCost: 0,
+        marketingCost: 0,
+        totalCost: 0,
+        sellingPrice: 0,
+        grossProfit: 0,
+        netProfit: 0,
+        grossMargin: 0,
+        netMargin: 0,
+      };
+    }
+
+    // Calculate average selling price
+    const totalRevenue = productOrders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0
+    );
+    const totalQuantity = productOrders.reduce(
+      (sum, order) => sum + order.quantity,
+      0
+    );
+    const avgSellingPrice = totalRevenue / totalQuantity;
+
+    // Calculate actual base price from orders
+    let totalBaseCost = 0;
+    productOrders.forEach((order) => {
+      let unitCost = 0;
+
+      // Get actual cost from selected option or product
+      if (order.selectedOptionId && product.options) {
+        const selectedOption = product.options.find(
+          (opt) => opt.id === order.selectedOptionId
+        );
+        if (selectedOption) {
+          // Use basePrice if available, otherwise estimate from selling price
+          unitCost = selectedOption.basePrice || selectedOption.price * 0.7;
+        }
+      } else if (product.price) {
+        // Fallback to product base price or estimate
+        unitCost = product.price * 0.7; // Conservative 70% cost estimate
+      }
+
+      totalBaseCost += unitCost * order.quantity;
+    });
+
+    const basePrice = totalQuantity > 0 ? totalBaseCost / totalQuantity : 0;
+
+    // Calculate allocated costs
+    const expenses = this.getExpenses(undefined, startDate, endDate);
+    const transactionFees =
+      expenses
+        .filter((e) => e.category === "transaction_fees")
+        .reduce((sum, e) => sum + e.amount, 0) / totalQuantity;
+
+    const operationalCost =
+      expenses
+        .filter((e) => e.category === "operational")
+        .reduce((sum, e) => sum + e.amount, 0) / totalQuantity;
+
+    const marketingCost =
+      expenses
+        .filter((e) => e.category === "marketing")
+        .reduce((sum, e) => sum + e.amount, 0) / totalQuantity;
+
+    const totalCost =
+      basePrice + transactionFees + operationalCost + marketingCost;
+    const grossProfit = avgSellingPrice - basePrice;
+    const netProfit = avgSellingPrice - totalCost;
+
+    return {
+      productId,
+      productTitle: product.title,
+      basePrice,
+      transactionFees,
+      operationalCost,
+      marketingCost,
+      totalCost,
+      sellingPrice: avgSellingPrice,
+      grossProfit,
+      netProfit,
+      grossMargin: calculateGrossMargin(grossProfit, avgSellingPrice),
+      netMargin: calculateNetMargin(netProfit, avgSellingPrice),
+    };
+  }
+
+  // Comprehensive profit analysis
+  getProfitAnalysis(startDate: Date, endDate: Date): ProfitAnalysis {
+    // Import ORDER_STATUS for proper status filtering
+    const { ORDER_STATUS } = require("./constants");
+
+    const orders = Array.from(this.orders.values()).filter(
+      (order) =>
+        order.createdAt >= startDate &&
+        order.createdAt <= endDate &&
+        order.status === ORDER_STATUS.COMPLETED
+    );
+
+    const expenses = this.getExpenses(undefined, startDate, endDate);
+
+    // Calculate revenue
+    const totalRevenue = orders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0
+    );
+
+    const revenueByProduct = new Map<
+      string,
+      { revenue: number; quantity: number; title: string }
+    >();
+    orders.forEach((order) => {
+      const product = this.products.get(order.productId);
+      const existing = revenueByProduct.get(order.productId) || {
+        revenue: 0,
+        quantity: 0,
+        title: product?.title || "Unknown",
+      };
+      revenueByProduct.set(order.productId, {
+        revenue: existing.revenue + order.totalAmount,
+        quantity: existing.quantity + order.quantity,
+        title: existing.title,
+      });
+    });
+
+    // Calculate actual COGS from orders
+    let actualCOGS = 0;
+    orders.forEach((order) => {
+      const product = this.products.get(order.productId);
+      if (product) {
+        let unitCost = 0;
+
+        // Get actual cost from selected option or product
+        if (order.selectedOptionId && product.options) {
+          const selectedOption = product.options.find(
+            (opt) => opt.id === order.selectedOptionId
+          );
+          if (selectedOption) {
+            // Use basePrice if available, otherwise estimate from selling price
+            unitCost = selectedOption.basePrice || selectedOption.price * 0.7;
+          }
+        } else if (product.price) {
+          // Fallback to product base price or estimate
+          unitCost = product.price * 0.7; // Conservative 70% cost estimate
+        }
+
+        actualCOGS += unitCost * order.quantity;
+      }
+    });
+
+    // Calculate costs by category (including actual COGS)
+    const expensesByCategory = {
+      operational: expenses
+        .filter((e) => e.category === "operational")
+        .reduce((sum, e) => sum + e.amount, 0),
+      marketing: expenses
+        .filter((e) => e.category === "marketing")
+        .reduce((sum, e) => sum + e.amount, 0),
+      administrative: expenses
+        .filter((e) => e.category === "administrative")
+        .reduce((sum, e) => sum + e.amount, 0),
+      transactionFees: expenses
+        .filter((e) => e.category === "transaction_fees")
+        .reduce((sum, e) => sum + e.amount, 0),
+      other: expenses
+        .filter((e) => e.category === "other")
+        .reduce((sum, e) => sum + e.amount, 0),
+    };
+
+    const costsByCategory = {
+      cogs:
+        actualCOGS +
+        expenses
+          .filter((e) => e.category === "cogs")
+          .reduce((sum, e) => sum + e.amount, 0), // Add any manual COGS entries
+      ...expensesByCategory,
+    };
+
+    const totalCosts = Object.values(costsByCategory).reduce(
+      (sum, cost) => sum + cost,
+      0
+    );
+    const grossProfit = totalRevenue - costsByCategory.cogs;
+    const netProfit = totalRevenue - totalCosts;
+
+    return {
+      period: {
+        startDate,
+        endDate,
+        label: `${startDate.toLocaleDateString(
+          "vi-VN"
+        )} - ${endDate.toLocaleDateString("vi-VN")}`,
+      },
+      revenue: {
+        total: totalRevenue,
+        byProduct: Array.from(revenueByProduct.entries()).map(
+          ([productId, data]) => ({
+            productId,
+            productTitle: data.title,
+            revenue: data.revenue,
+            quantity: data.quantity,
+          })
+        ),
+        byCategory: [], // TODO: Implement category-based revenue
+      },
+      costs: {
+        total: totalCosts,
+        ...costsByCategory,
+        byProduct: [], // TODO: Implement product-specific cost allocation
+      },
+      profit: {
+        gross: grossProfit,
+        net: netProfit,
+        grossMargin: calculateGrossMargin(grossProfit, totalRevenue),
+        netMargin: calculateNetMargin(netProfit, totalRevenue),
+        byProduct: Array.from(revenueByProduct.entries()).map(
+          ([productId, data]) => {
+            const costBreakdown = this.calculateProductCostBreakdown(
+              productId,
+              startDate,
+              endDate
+            );
+
+            // Calculate actual profit metrics for this product
+            const productRevenue = data.revenue;
+            const productCost = costBreakdown?.totalCost || 0;
+            const grossProfit =
+              productRevenue - (costBreakdown?.basePrice || 0) * data.quantity;
+            const netProfit = productRevenue - productCost * data.quantity;
+
+            return {
+              productId,
+              productTitle: data.title,
+              grossProfit,
+              netProfit,
+              grossMargin:
+                productRevenue > 0 ? (grossProfit / productRevenue) * 100 : 0,
+              netMargin:
+                productRevenue > 0 ? (netProfit / productRevenue) * 100 : 0,
+              quantity: data.quantity,
+            };
+          }
+        ),
+      },
+      trends: {
+        revenueGrowth: 0, // TODO: Calculate based on previous period
+        profitGrowth: 0, // TODO: Calculate based on previous period
+        marginTrend: "stable", // TODO: Determine trend
+      },
+    };
+  }
+
+  // ROI Analysis
+  calculateROI(
+    campaignName: string,
+    investment: number,
+    startDate: Date,
+    endDate: Date,
+    productIds?: string[]
+  ): ROIAnalysis {
+    const { ORDER_STATUS } = require("./constants");
+    let orders = Array.from(this.orders.values()).filter(
+      (order) =>
+        order.createdAt >= startDate &&
+        order.createdAt <= endDate &&
+        order.status === ORDER_STATUS.COMPLETED
+    );
+
+    if (productIds && productIds.length > 0) {
+      orders = orders.filter((order) => productIds.includes(order.productId));
+    }
+
+    const returns = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const profit = returns - investment;
+    const roi = calculateROI(profit, investment);
+
+    return {
+      campaignName,
+      investment,
+      returns,
+      profit,
+      roi,
+      period: { startDate, endDate },
+      metrics: {
+        customerAcquisitionCost: investment / orders.length || 0,
+        customerLifetimeValue: returns / orders.length || 0,
+        paybackPeriod:
+          investment > 0
+            ? investment /
+              (returns /
+                ((endDate.getTime() - startDate.getTime()) /
+                  (1000 * 60 * 60 * 24)))
+            : 0,
+      },
+    };
+  }
+
+  // Profit alerts management
+  createProfitAlert(
+    alertData: Omit<ProfitAlert, "id" | "createdAt">
+  ): ProfitAlert {
+    const alert: ProfitAlert = {
+      ...alertData,
+      id: `alert-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      createdAt: new Date(),
+    };
+
+    this.profitAlerts.set(alert.id, alert);
+    this.scheduleSave();
+    return alert;
+  }
+
+  getProfitAlerts(unreadOnly: boolean = false): ProfitAlert[] {
+    let alerts = Array.from(this.profitAlerts.values());
+
+    if (unreadOnly) {
+      alerts = alerts.filter((alert) => !alert.isRead);
+    }
+
+    return alerts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  markAlertAsRead(alertId: string): boolean {
+    const alert = this.profitAlerts.get(alertId);
+    if (!alert) return false;
+
+    alert.isRead = true;
+    this.profitAlerts.set(alertId, alert);
+    this.scheduleSave();
+    return true;
+  }
+
+  resolveAlert(alertId: string): boolean {
+    const alert = this.profitAlerts.get(alertId);
+    if (!alert) return false;
+
+    alert.isResolved = true;
+    alert.isRead = true;
+    this.profitAlerts.set(alertId, alert);
+    this.scheduleSave();
+    return true;
+  }
+
+  // Check for profit issues and generate alerts
+  checkProfitAlerts(startDate: Date, endDate: Date): ProfitAlert[] {
+    const newAlerts: ProfitAlert[] = [];
+    const profitAnalysis = this.getProfitAnalysis(startDate, endDate);
+
+    // Check overall profit margin
+    if (profitAnalysis.profit.netMargin < PROFIT_ALERT_THRESHOLDS.LOW_MARGIN) {
+      newAlerts.push(
+        this.createProfitAlert({
+          type: "low_margin",
+          severity: profitAnalysis.profit.netMargin < 0 ? "critical" : "high",
+          title: "Tỷ suất lợi nhuận thấp",
+          description: `Tỷ suất lợi nhuận ròng hiện tại là ${profitAnalysis.profit.netMargin.toFixed(
+            1
+          )}%, thấp hơn ngưỡng cảnh báo ${PROFIT_ALERT_THRESHOLDS.LOW_MARGIN}%`,
+          currentValue: profitAnalysis.profit.netMargin,
+          threshold: PROFIT_ALERT_THRESHOLDS.LOW_MARGIN,
+          recommendation: "Xem xét tối ưu hóa chi phí hoặc điều chỉnh giá bán",
+          isRead: false,
+          isResolved: false,
+        })
+      );
+    }
+
+    // Check for negative profit
+    if (profitAnalysis.profit.net < 0) {
+      newAlerts.push(
+        this.createProfitAlert({
+          type: "negative_profit",
+          severity: "critical",
+          title: "Lợi nhuận âm",
+          description: `Doanh nghiệp đang lỗ ${Math.abs(
+            profitAnalysis.profit.net
+          ).toLocaleString("vi-VN")}₫`,
+          currentValue: profitAnalysis.profit.net,
+          threshold: 0,
+          recommendation:
+            "Cần xem xét lại chiến lược kinh doanh và cắt giảm chi phí ngay lập tức",
+          isRead: false,
+          isResolved: false,
+        })
+      );
+    }
+
+    // Check individual products for low margins
+    profitAnalysis.profit.byProduct.forEach((product) => {
+      if (product.netMargin < PROFIT_ALERT_THRESHOLDS.LOW_MARGIN) {
+        newAlerts.push(
+          this.createProfitAlert({
+            type: "low_margin",
+            severity: product.netMargin < 0 ? "critical" : "medium",
+            title: `Sản phẩm có tỷ suất lợi nhuận thấp`,
+            description: `${
+              product.productTitle
+            } có tỷ suất lợi nhuận ròng ${product.netMargin.toFixed(1)}%`,
+            productId: product.productId,
+            productTitle: product.productTitle,
+            currentValue: product.netMargin,
+            threshold: PROFIT_ALERT_THRESHOLDS.LOW_MARGIN,
+            recommendation:
+              "Xem xét điều chỉnh giá bán hoặc tối ưu hóa chi phí cho sản phẩm này",
+            isRead: false,
+            isResolved: false,
+          })
+        );
+      }
+    });
+
+    return newAlerts;
+  }
+
+  // Profit forecasting
+  generateProfitForecast(
+    forecastPeriodDays: number,
+    assumptions: {
+      revenueGrowthRate: number;
+      costInflationRate: number;
+      seasonalityFactor: number;
+    }
+  ): ProfitForecast {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - forecastPeriodDays);
+
+    const historicalAnalysis = this.getProfitAnalysis(startDate, endDate);
+    const dailyRevenue = historicalAnalysis.revenue.total / forecastPeriodDays;
+    const dailyCosts = historicalAnalysis.costs.total / forecastPeriodDays;
+
+    const forecastStartDate = new Date();
+    const forecastEndDate = new Date();
+    forecastEndDate.setDate(forecastEndDate.getDate() + forecastPeriodDays);
+
+    // Base forecast
+    const baseRevenue =
+      dailyRevenue *
+      forecastPeriodDays *
+      (1 + assumptions.revenueGrowthRate / 100) *
+      assumptions.seasonalityFactor;
+    const baseCosts =
+      dailyCosts *
+      forecastPeriodDays *
+      (1 + assumptions.costInflationRate / 100);
+
+    return {
+      period: {
+        startDate: forecastStartDate,
+        endDate: forecastEndDate,
+        label: `Dự báo ${forecastPeriodDays} ngày tới`,
+      },
+      forecast: {
+        revenue: baseRevenue,
+        costs: baseCosts,
+        grossProfit: baseRevenue - baseCosts * 0.7, // Assume 70% of costs are COGS
+        netProfit: baseRevenue - baseCosts,
+        confidence: 75, // Base confidence level
+      },
+      assumptions,
+      scenarios: {
+        optimistic: {
+          revenue: baseRevenue * 1.2,
+          profit: baseRevenue * 1.2 - baseCosts,
+          margin: ((baseRevenue * 1.2 - baseCosts) / (baseRevenue * 1.2)) * 100,
+        },
+        realistic: {
+          revenue: baseRevenue,
+          profit: baseRevenue - baseCosts,
+          margin: ((baseRevenue - baseCosts) / baseRevenue) * 100,
+        },
+        pessimistic: {
+          revenue: baseRevenue * 0.8,
+          profit: baseRevenue * 0.8 - baseCosts,
+          margin: ((baseRevenue * 0.8 - baseCosts) / (baseRevenue * 0.8)) * 100,
+        },
+      },
+    };
   }
 }
 

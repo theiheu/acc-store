@@ -81,7 +81,7 @@ export default function ProductInfoTabs({
               aria-selected={selected}
               tabIndex={selected ? 0 : -1}
               onClick={() => setActive(t.id)}
-              className={`relative px-3 md:px-4 lg:px-5 py-2 md:py-2.5 lg:py-3 text-sm md:text-base lg:text-lg font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 rounded-t-md ${
+              className={`relative px-3 md:px-4 lg:px-5 py-2 md:py-2.5 lg:py-3 text-sm md:text-base lg:text-lg font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 rounded-t-md cursor-pointer ${
                 selected
                   ? "text-amber-600 dark:text-amber-400"
                   : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"

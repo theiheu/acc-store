@@ -12,17 +12,25 @@
     "cleanup:code-only": "node scripts/cleanup-code-references.js"
   },
   "dependencies": {
+    "@types/chart.js": "^4.0.1",
     "@types/qrcode": "^1.5.5",
+    "chart.js": "^4.5.0",
+    "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
     "next": "15.4.6",
     "next-auth": "^4.24.11",
     "postcss": "^8.5.6",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "19.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.11",
+    "@types/jspdf": "^2.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -233,7 +233,14 @@ export interface ActivityLog {
   adminId: string;
   adminName: string;
   action: string;
-  targetType: "user" | "product" | "order" | "system" | "topup-request";
+  targetType:
+    | "user"
+    | "product"
+    | "order"
+    | "system"
+    | "topup-request"
+    | "analytics"
+    | "report";
   targetId?: string;
   description: string;
   metadata?: Record<string, any>;

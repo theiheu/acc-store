@@ -56,13 +56,56 @@ export async function POST(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const { type, days = 30 } = await request.json();
+    const { type, days = 30, startDate, endDate } = await request.json();
 
-    // Get real data from data store
-    const responseData =
-      type === "revenue"
-        ? dataStore.getRevenueData(days)
-        : dataStore.getUserGrowthData(days);
+    let responseData;
+
+    if (startDate && endDate) {
+      // Use custom date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      switch (type) {
+        case "revenue":
+          responseData = dataStore.getRevenueData(start, end);
+          break;
+        case "userGrowth":
+          responseData = dataStore.getUserGrowthData(start, end);
+          break;
+        case "conversionRate":
+          responseData = dataStore.getConversionRateData(start, end);
+          break;
+        case "productPerformance":
+          responseData = dataStore.getProductPerformanceData(start, end);
+          break;
+        case "topCustomers":
+          responseData = dataStore.getTopCustomersData(10, start, end);
+          break;
+        default:
+          responseData = dataStore.getRevenueData(start, end);
+      }
+    } else {
+      // Use days from today (legacy behavior)
+      switch (type) {
+        case "revenue":
+          responseData = dataStore.getRevenueData(days);
+          break;
+        case "userGrowth":
+          responseData = dataStore.getUserGrowthData(days);
+          break;
+        case "conversionRate":
+          responseData = dataStore.getConversionRateData(days);
+          break;
+        case "productPerformance":
+          responseData = dataStore.getProductPerformanceData(days);
+          break;
+        case "topCustomers":
+          responseData = dataStore.getTopCustomersData(10, days);
+          break;
+        default:
+          responseData = dataStore.getRevenueData(days);
+      }
+    }
 
     return NextResponse.json({
       success: true,

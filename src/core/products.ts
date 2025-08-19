@@ -17,8 +17,22 @@ export type ProductOption = {
   price: number; // Giá bán thực tế của option này
   stock: number; // Số lượng tồn kho của option này
   kioskToken?: string; // Token API để mua sản phẩm này
-  basePrice?: number; // Giá gốc để tính lợi nhuận
+  basePrice?: number; // Giá gốc từ nhà cung cấp
   profitMargin?: number; // % lợi nhuận
+  // Enhanced cost tracking
+  costBreakdown?: {
+    supplierCost: number; // Chi phí từ nhà cung cấp
+    transactionFee: number; // Phí giao dịch
+    operationalCost: number; // Chi phí vận hành được phân bổ
+    marketingCost: number; // Chi phí marketing được phân bổ
+    totalCost: number; // Tổng chi phí
+  };
+  profitMetrics?: {
+    grossProfit: number; // Lợi nhuận gộp (price - supplierCost)
+    netProfit: number; // Lợi nhuận ròng (price - totalCost)
+    grossMargin: number; // Tỷ suất lợi nhuận gộp (%)
+    netMargin: number; // Tỷ suất lợi nhuận ròng (%)
+  };
 };
 
 export type Product = {

@@ -65,8 +65,14 @@ export default function ConfirmPurchaseModal({
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Số dư hiện tại</span>
-            <span className={`font-medium ${insufficient ? "text-red-600 dark:text-red-400" : ""}`}>
+            <span className="text-gray-600 dark:text-gray-400">
+              Số dư hiện tại
+            </span>
+            <span
+              className={`font-medium ${
+                insufficient ? "text-red-600 dark:text-red-400" : ""
+              }`}
+            >
               {typeof balance === "number" ? fmt.format(balance) : "—"}
             </span>
           </div>
@@ -80,7 +86,7 @@ export default function ConfirmPurchaseModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
           >
             Hủy
           </button>
@@ -88,7 +94,7 @@ export default function ConfirmPurchaseModal({
             type="button"
             onClick={onConfirm}
             disabled={insufficient}
-            className="inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 cursor-pointer"
           >
             Xác nhận mua
           </button>
@@ -97,4 +103,3 @@ export default function ConfirmPurchaseModal({
     </div>
   );
 }
-
