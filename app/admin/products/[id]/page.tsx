@@ -23,6 +23,7 @@ interface ProductFormData {
   imageEmoji: string;
   imageUrl: string;
   badge: string;
+  originalLink: string; // Link gốc/nguồn sản phẩm
   stock?: number; // Optional - only used when no options
   isActive: boolean;
   options?: ProductOption[];
@@ -45,10 +46,11 @@ function EditProduct() {
     longDescription: "",
     price: undefined, // Start as undefined
     currency: "VND",
-    category: "gaming",
+    category: "uncategorized",
     imageEmoji: "📦",
     imageUrl: "",
     badge: "",
+    originalLink: "", // Link gốc/nguồn sản phẩm
     stock: undefined, // Start as undefined
     isActive: true,
   });
@@ -86,13 +88,16 @@ function EditProduct() {
           title: productData.title || "",
           description: productData.description || "",
           longDescription: productData.longDescription || "",
-          price: productData.price || 0,
+          price:
+            productData.price !== undefined ? productData.price : undefined,
           currency: productData.currency || "VND",
-          category: productData.category || "gaming",
+          category: productData.category || "uncategorized",
           imageEmoji: productData.imageEmoji || "📦",
           imageUrl: productData.imageUrl || "",
           badge: productData.badge || "",
-          stock: productData.stock || 0,
+          originalLink: productData.originalLink || "",
+          stock:
+            productData.stock !== undefined ? productData.stock : undefined,
           isActive: productData.isActive !== false,
           options: productData.options || [],
           supplier: productData.supplier,
@@ -123,6 +128,16 @@ function EditProduct() {
 
     if (!formData.category) {
       newErrors.category = "Danh mục là bắt buộc";
+    }
+
+    // Validate originalLink if provided
+    if (formData.originalLink && formData.originalLink.trim()) {
+      try {
+        new URL(formData.originalLink);
+      } catch {
+        newErrors.originalLink =
+          "Link không hợp lệ. Vui lòng nhập URL đúng định dạng";
+      }
     }
 
     const hasOptions = formData.options && formData.options.length > 0;
@@ -301,19 +316,63 @@ function EditProduct() {
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium">Mô tả</label>
-              <textarea
+              <label className="block text-sm font-medium">Mô tả ngắn *</label>
+              <input
+                type="text"
                 value={formData.description}
                 onChange={(e) =>
                   handleInputChange("description", e.target.value)
                 }
                 className="mt-1 w-full border rounded-md px-3 py-2"
+                placeholder="Mô tả ngắn gọn về sản phẩm"
               />
               {errors.description && (
                 <p className="text-sm text-red-600 mt-1">
                   {errors.description}
                 </p>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">
+                Mô tả chi tiết
+              </label>
+              <textarea
+                value={formData.longDescription}
+                onChange={(e) =>
+                  handleInputChange("longDescription", e.target.value)
+                }
+                rows={6}
+                className="mt-1 w-full border rounded-md px-3 py-2 font-mono text-sm resize-y"
+                placeholder="Mô tả chi tiết về sản phẩm, tính năng, lợi ích...&#10;&#10;Hỗ trợ xuống dòng và định dạng văn bản.&#10;Có thể copy-paste nội dung từ nguồn khác."
+                style={{ minHeight: "120px" }}
+              />
+              {errors.longDescription && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.longDescription}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Link gốc</label>
+              <input
+                type="url"
+                value={formData.originalLink}
+                onChange={(e) =>
+                  handleInputChange("originalLink", e.target.value)
+                }
+                className={`mt-1 w-full border rounded-md px-3 py-2 ${
+                  errors.originalLink ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder="https://example.com/product-source"
+              />
+              {errors.originalLink && (
+                <p className="text-sm text-red-600 mt-1">
+                  {errors.originalLink}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                Link nguồn gốc của sản phẩm (tùy chọn)
+              </p>
             </div>
             {/* Conditional Price & Stock - only when no options */}
             {(!formData.options || formData.options.length === 0) && (
@@ -326,9 +385,13 @@ function EditProduct() {
                     type="number"
                     min="0"
                     value={formData.price || ""}
-                    onChange={(e) =>
-                      handleInputChange("price", Number(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleInputChange(
+                        "price",
+                        value === "" ? undefined : Number(value) || 0
+                      );
+                    }}
                     className="mt-1 w-full border rounded-md px-3 py-2"
                     placeholder="0"
                   />
@@ -347,9 +410,13 @@ function EditProduct() {
                     type="number"
                     min="0"
                     value={formData.stock || ""}
-                    onChange={(e) =>
-                      handleInputChange("stock", Number(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleInputChange(
+                        "stock",
+                        value === "" ? undefined : Number(value) || 0
+                      );
+                    }}
                     className="mt-1 w-full border rounded-md px-3 py-2"
                     placeholder="0"
                   />

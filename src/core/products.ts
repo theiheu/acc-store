@@ -1,14 +1,10 @@
-export type CategoryId = "all" | "gaming" | "social" | "productivity";
+export type CategoryId = "all" | "uncategorized";
 
 export const CATEGORIES: {
   id: Exclude<CategoryId, "all">;
   label: string;
   icon: string;
-}[] = [
-  { id: "gaming", label: "Tài khoản Gaming", icon: "🎮" },
-  { id: "social", label: "Tài khoản Social Media", icon: "📱" },
-  { id: "productivity", label: "Tài khoản Productivity", icon: "⚙️" },
-];
+}[] = [{ id: "uncategorized", label: "Chưa phân loại", icon: "🏷️" }];
 
 // Optimized option structure with direct price and stock
 export type ProductOption = {
@@ -48,6 +44,7 @@ export type Product = {
   faqs?: Array<{ q: string; a: string }>;
   category: Exclude<CategoryId, "all">;
   options?: ProductOption[]; // các tùy chọn sản phẩm - primary pricing source
+  originalLink?: string; // Link gốc/nguồn sản phẩm
   // Admin fields (optional for backward compatibility)
   stock?: number; // Optional - only used when no options available
   sold?: number;

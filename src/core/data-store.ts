@@ -309,27 +309,10 @@ class DataStore {
       Omit<Category, "id" | "createdAt" | "updatedAt">
     > = [
       {
-        name: "Gaming",
-        slug: "gaming",
-        description: "Tài khoản Gaming",
-        isActive: true,
-      },
-      {
-        name: "Social",
-        slug: "social",
-        description: "Tài khoản Social Media",
-        isActive: true,
-      },
-      {
-        name: "Productivity",
-        slug: "productivity",
-        description: "Tài khoản Productivity",
-        isActive: true,
-      },
-      {
         name: "Chưa phân loại",
         slug: "uncategorized",
         description: "Danh mục mặc định",
+        icon: "🏷️",
         isActive: true,
       },
     ];

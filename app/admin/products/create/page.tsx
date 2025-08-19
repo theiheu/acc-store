@@ -22,6 +22,7 @@ interface ProductFormData {
   imageEmoji: string;
   imageUrl: string;
   badge: string;
+  originalLink: string; // Link gốc/nguồn sản phẩm
   stock?: number; // Optional - only used when no options
   isActive: boolean;
   options?: ProductOption[];
@@ -40,10 +41,11 @@ function CreateProduct() {
     longDescription: "",
     price: undefined, // Start as undefined - will be set if no options
     currency: "VND",
-    category: "gaming",
+    category: "uncategorized",
     imageEmoji: "📦",
     imageUrl: "",
     badge: "",
+    originalLink: "", // Link gốc/nguồn sản phẩm
     stock: undefined, // Start as undefined - will be set if no options
     isActive: true,
     options: [],
@@ -76,6 +78,16 @@ function CreateProduct() {
 
     if (!formData.category) {
       newErrors.category = "Danh mục là bắt buộc";
+    }
+
+    // Validate originalLink if provided
+    if (formData.originalLink && formData.originalLink.trim()) {
+      try {
+        new URL(formData.originalLink);
+      } catch {
+        newErrors.originalLink =
+          "Link không hợp lệ. Vui lòng nhập URL đúng định dạng";
+      }
     }
 
     const hasOptions = formData.options && formData.options.length > 0;
@@ -315,6 +327,33 @@ function CreateProduct() {
                   placeholder="📦"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Link gốc
+                </label>
+                <input
+                  type="url"
+                  value={formData.originalLink}
+                  onChange={(e) =>
+                    handleInputChange("originalLink", e.target.value)
+                  }
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                    errors.originalLink
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-700"
+                  }`}
+                  placeholder="https://example.com/product-source"
+                />
+                {errors.originalLink && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    {errors.originalLink}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Link nguồn gốc của sản phẩm (tùy chọn)
+                </p>
+              </div>
             </div>
 
             <div className="mt-6">
@@ -326,9 +365,10 @@ function CreateProduct() {
                 onChange={(e) =>
                   handleInputChange("longDescription", e.target.value)
                 }
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                placeholder="Mô tả chi tiết về sản phẩm, tính năng, lợi ích..."
+                rows={6}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent font-mono text-sm resize-y"
+                placeholder="Mô tả chi tiết về sản phẩm, tính năng, lợi ích...&#10;&#10;Hỗ trợ xuống dòng và định dạng văn bản.&#10;Có thể copy-paste nội dung từ nguồn khác."
+                style={{ minHeight: "120px" }}
               />
             </div>
           </div>
@@ -353,9 +393,13 @@ function CreateProduct() {
                     type="number"
                     min="0"
                     value={formData.price || ""}
-                    onChange={(e) =>
-                      handleInputChange("price", Number(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleInputChange(
+                        "price",
+                        value === "" ? undefined : Number(value) || 0
+                      );
+                    }}
                     className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
                       errors.price
                         ? "border-red-500"
@@ -378,9 +422,13 @@ function CreateProduct() {
                     type="number"
                     min="0"
                     value={formData.stock || ""}
-                    onChange={(e) =>
-                      handleInputChange("stock", Number(e.target.value) || 0)
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleInputChange(
+                        "stock",
+                        value === "" ? undefined : Number(value) || 0
+                      );
+                    }}
                     className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
                       errors.stock
                         ? "border-red-500"

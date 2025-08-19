@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
       faqs: productData.faqs || [],
       category: productData.category,
       options: productData.options || [],
+      originalLink: productData.originalLink,
       stock: productData.stock || 0,
       sold: 0,
       isActive: productData.isActive !== false, // Default to true unless explicitly false

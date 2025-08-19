@@ -13,9 +13,11 @@ import ProductImage from "@/src/components/product/ProductImage";
 import ProductPurchaseForm from "@/src/components/forms/ProductPurchaseForm";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
 import ConfirmPurchaseModal from "@/src/components/ui/ConfirmPurchaseModal";
+import PurchaseSuccessModal from "@/src/components/ui/PurchaseSuccessModal";
 import { useDataSync } from "@/src/components/providers/DataSyncProvider";
+import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
-// Custom hook for product data fetching
+// Custom hook for product data fetching with real-time updates
 function useProductData(id: string | undefined) {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,6 +73,36 @@ function useProductData(id: string | undefined) {
     }
   }, [id]);
 
+  // Listen for real-time product updates
+  useRealtimeUpdates({
+    onProductUpdated: useCallback(
+      (data: any) => {
+        // Check if this is the product we're currently viewing
+        if (product && data.id === product.id) {
+          console.log("Product updated via SSE, refreshing data...");
+          // Convert admin product data to public product format
+          const updatedProduct: Product = {
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            longDescription: data.longDescription,
+            price: data.price,
+            currency: data.currency,
+            imageEmoji: data.imageEmoji,
+            imageUrl: data.imageUrl,
+            badge: data.badge,
+            category: data.category,
+            options: data.options,
+            faqs: data.faqs || [],
+          };
+          setProduct(updatedProduct);
+        }
+      },
+      [product]
+    ),
+    showNotifications: false,
+  });
+
   useEffect(() => {
     fetchProduct();
   }, [fetchProduct]);
@@ -89,6 +121,15 @@ export default function ProductDetailPage() {
   const { hideLoading, showLoading } = useGlobalLoading();
   const { product, isLoading, fetchError } = useProductData(id);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [orderData, setOrderData] = useState<{
+    orderId: string;
+    productTitle: string;
+    quantity: number;
+    totalAmount: number;
+    currency: string;
+    hasCredentials?: boolean;
+  } | null>(null);
   const { show } = useToastContext();
 
   // Simplified state for purchase form
@@ -316,23 +357,31 @@ export default function ProductDetailPage() {
             });
             const data = await res.json();
             if (!data.success) {
+              hideLoading();
               show(data.error || "Không thể tạo đơn hàng");
               return;
             }
             setConfirmOpen(false);
-            if (data.data?.credentials) {
-              show("Mua hàng thành công. Thông tin tài khoản đã sẵn sàng.");
-              // Redirect to orders page
-              window.location.href = "/orders";
-            } else {
-              show(
-                "Đơn hàng đang được xử lý. Vui lòng kiểm tra lịch sử đơn hàng."
-              );
-              window.location.href = "/orders";
-            }
+
+            // Prepare order data for success modal
+            const orderInfo = {
+              orderId: data.data?.orderId || "N/A",
+              productTitle: product.title,
+              quantity: qty,
+              totalAmount: currentPrice * qty,
+              currency: product.currency,
+              hasCredentials: !!data.data?.credentials,
+            };
+
+            setOrderData(orderInfo);
+            setSuccessOpen(true);
+            hideLoading();
           } catch (e) {
             console.error(e);
+            hideLoading();
             show("Có lỗi xảy ra khi tạo đơn hàng");
+          } finally {
+            hideLoading();
           }
         }}
         productTitle={product.title}
@@ -341,6 +390,18 @@ export default function ProductDetailPage() {
         currency={product.currency}
         balance={currentUser?.balance}
       />
+
+      {/* Purchase success modal */}
+      {orderData && (
+        <PurchaseSuccessModal
+          open={successOpen}
+          onClose={() => {
+            setSuccessOpen(false);
+            setOrderData(null);
+          }}
+          orderData={orderData}
+        />
+      )}
     </div>
   );
 }

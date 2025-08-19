@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import type { Product } from "@/src/core/products";
 
-type TabId = "overview" | "specs" | "faq" | "reviews";
+type TabId = "overview" | "faq" | "reviews";
 
 interface ProductInfoTabsProps {
   product: Product;
@@ -19,20 +19,9 @@ export default function ProductInfoTabs({
 
   const tabs: Array<{ id: TabId; label: string }> = [
     { id: "overview", label: "Mô tả" },
-    { id: "specs", label: "Thông số" },
     { id: "faq", label: "Hỏi đáp" },
     { id: "reviews", label: "Đánh giá" },
   ];
-
-  const fmt = useMemo(
-    () =>
-      new Intl.NumberFormat("vi-VN", {
-        style: "currency",
-        currency: product.currency,
-        currencyDisplay: "narrowSymbol",
-      }),
-    [product.currency]
-  );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     const idx = tabs.findIndex((t) => t.id === active);
@@ -116,85 +105,11 @@ export default function ProductInfoTabs({
           </p>
           {product.longDescription && (
             <div className="prose prose-sm dark:prose-invert max-w-none">
-              <p className="leading-relaxed md:text-[15px] lg:text-base">
+              <pre className="whitespace-pre-wrap leading-relaxed md:text-[15px] lg:text-base text-gray-700 dark:text-gray-300 font-sans bg-transparent p-0 m-0 border-none">
                 {product.longDescription}
-              </p>
+              </pre>
             </div>
           )}
-        </div>
-
-        {/* Specifications */}
-        <div
-          role="tabpanel"
-          id="panel-specs"
-          aria-labelledby="tab-specs"
-          hidden={active !== "specs"}
-        >
-          <div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3">
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">Danh mục</dt>
-                <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                  {product.category}
-                </dd>
-              </div>
-              {product.price && (
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-gray-600 dark:text-gray-400">
-                    Giá cơ bản
-                  </dt>
-                  <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                    {fmt.format(product.price)}
-                  </dd>
-                </div>
-              )}
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">Tiền tệ</dt>
-                <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                  {product.currency}
-                </dd>
-              </div>
-              {product.badge && (
-                <div className="flex items-start justify-between gap-4">
-                  <dt className="text-gray-600 dark:text-gray-400">Nổi bật</dt>
-                  <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                    {product.badge === "hot" ? "Hot" : "Mới"}
-                  </dd>
-                </div>
-              )}
-              {product.stock !== undefined &&
-                (!product.options || product.options.length === 0) && (
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-gray-600 dark:text-gray-400">
-                      Tồn kho
-                    </dt>
-                    <dd className="text-gray-900 dark:text-gray-100 font-medium">
-                      {product.stock}
-                    </dd>
-                  </div>
-                )}
-              {product.options && product.options.length > 0 && (
-                <div className="sm:col-span-2">
-                  <dt className="text-gray-600 dark:text-gray-400">Tùy chọn</dt>
-                  <dd className="mt-1">
-                    <ul className="list-disc pl-5 space-y-1 text-gray-900 dark:text-gray-100">
-                      {product.options.map((opt) => (
-                        <li key={opt.id}>
-                          <span className="font-medium">{opt.label}</span>:{" "}
-                          {fmt.format(opt.price)}
-                          {opt.stock !== undefined && (
-                            <span className="text-gray-500 dark:text-gray-400 ml-2">
-                              (Còn {opt.stock})
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
         </div>
 
         {/* FAQ */}
