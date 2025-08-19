@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import { AdminUser, UserTransaction } from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 
 import { formatTransactionDescription } from "@/src/utils/transactions";
 

@@ -7,7 +7,7 @@ import { getOrderProcessor } from "@/src/services/orderProcessor";
 // GET /api/orders/[orderId]/status - Get order status and processing info
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -26,9 +26,9 @@ export async function GET(
       );
     }
 
-    const { orderId } = params;
+    const { orderId } = await params;
     const order = dataStore.getOrder(orderId);
-    
+
     if (!order) {
       return NextResponse.json(
         { success: false, error: "Không tìm thấy đơn hàng" },
@@ -47,7 +47,9 @@ export async function GET(
     // Get processing info if order is still pending
     const processor = getOrderProcessor();
     const processingStats = processor.getStats();
-    const processingJob = processingStats.jobs.find(job => job.orderId === orderId);
+    const processingJob = processingStats.jobs.find(
+      (job) => job.orderId === orderId
+    );
 
     const response = {
       orderId: order.id,
@@ -58,12 +60,14 @@ export async function GET(
       totalAmount: order.totalAmount,
       quantity: order.quantity,
       deliveryInfo: order.deliveryInfo,
-      processing: processingJob ? {
-        attempts: processingJob.attempts,
-        nextRetryAt: processingJob.nextRetryAt,
-        estimatedCompletionTime: new Date(Date.now() + 30000), // Rough estimate
-        isProcessing: processingStats.isProcessing,
-      } : null,
+      processing: processingJob
+        ? {
+            attempts: processingJob.attempts,
+            nextRetryAt: processingJob.nextRetryAt,
+            estimatedCompletionTime: new Date(Date.now() + 30000), // Rough estimate
+            isProcessing: processingStats.isProcessing,
+          }
+        : null,
     };
 
     return NextResponse.json({

@@ -1,4 +1,4 @@
-import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
+import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
 
 export default function Loading() {
   return (
@@ -13,4 +13,3 @@ export default function Loading() {
     </div>
   );
 }
-

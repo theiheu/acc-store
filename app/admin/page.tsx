@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
-import { useDashboardStats } from "@/src/components/DataSyncProvider";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useDashboardStats } from "@/src/components/providers/DataSyncProvider";
 import { DashboardStats } from "@/src/core/admin";
 import StatsGrid from "@/src/components/admin/StatsGrid";
 import QuickActions from "@/src/components/admin/QuickActions";

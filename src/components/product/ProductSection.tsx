@@ -3,7 +3,7 @@
 import { useState, useCallback, memo } from "react";
 import { useProducts } from "@/src/hooks/useProducts";
 import ProductGrid from "./ProductGrid";
-import ProductFilters from "./ProductFilters";
+import ProductFilters from "../forms/ProductFilters";
 
 interface ProductSectionProps {
   category?: string;
@@ -20,7 +20,9 @@ const ProductSection = memo(function ProductSection({
   showFilters = true,
   className = "",
 }: ProductSectionProps) {
-  const [sortBy, setSortBy] = useState<"price" | "title" | "createdAt">("createdAt");
+  const [sortBy, setSortBy] = useState<"price" | "title" | "createdAt">(
+    "createdAt"
+  );
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const { filteredProducts, loading, error, totalCount } = useProducts({
@@ -30,13 +32,16 @@ const ProductSection = memo(function ProductSection({
     sortOrder,
   });
 
-  const handleSortChange = useCallback((
-    newSortBy: "price" | "title" | "createdAt",
-    newSortOrder: "asc" | "desc"
-  ) => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder);
-  }, []);
+  const handleSortChange = useCallback(
+    (
+      newSortBy: "price" | "title" | "createdAt",
+      newSortOrder: "asc" | "desc"
+    ) => {
+      setSortBy(newSortBy);
+      setSortOrder(newSortOrder);
+    },
+    []
+  );
 
   if (error) {
     return (
@@ -45,9 +50,7 @@ const ProductSection = memo(function ProductSection({
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
           Có lỗi xảy ra
         </h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-4">
-          {error}
-        </p>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
         <button
           onClick={() => window.location.reload()}
           className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

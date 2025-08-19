@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useToastContext } from "@/src/components/ToastProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 
 interface RealtimeEvent {
   type: string;

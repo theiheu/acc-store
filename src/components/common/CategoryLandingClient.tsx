@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
-import ProductCard from "@/src/components/ProductCard";
-import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
-import EmptyState from "@/src/components/EmptyState";
-import { useToastContext } from "@/src/components/ToastProvider";
+import { useProductsWithLoading } from "@/src/components/providers/DataSyncProvider";
+import ProductCard from "@/src/components/product/ProductCard";
+import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
+import EmptyState from "@/src/components/ui/EmptyState";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import {
   AdminPermissionGate,
   AdminAuthProvider,
-} from "@/src/components/AdminAuthProvider";
-import FeaturedProductsSelector from "@/src/components/FeaturedProductsSelector";
+} from "@/src/components/providers/AdminAuthProvider";
+import FeaturedProductsSelector from "@/src/components/forms/FeaturedProductsSelector";
 
 export default function CategoryLandingClient({
   slug,

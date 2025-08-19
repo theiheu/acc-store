@@ -5,13 +5,13 @@ we add a small CSS block here for the custom keyframes used in the Modal compone
 */
 
 import { useState, useEffect, useRef } from "react";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
-import { useDataSync } from "@/src/components/DataSyncProvider";
+import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import {
   getStatusBadge,
   getStatusText,

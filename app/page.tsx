@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Hero from "@/src/components/Hero";
-import ProductCard from "@/src/components/ProductCard";
-import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
-import HomePageSkeleton from "@/src/components/HomePageSkeleton";
-import EmptyState from "@/src/components/EmptyState";
-import CategorySidebar from "@/src/components/CategorySidebar";
-import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
+import Hero from "@/src/components/layout/Hero";
+import ProductCard from "@/src/components/product/ProductCard";
+import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
+import HomePageSkeleton from "@/src/components/ui/HomePageSkeleton";
+import EmptyState from "@/src/components/ui/EmptyState";
+import CategorySidebar from "@/src/components/layout/CategorySidebar";
+import { useProductsWithLoading } from "@/src/components/providers/DataSyncProvider";
 import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 
 export default function Home() {

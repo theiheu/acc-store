@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Skeleton, SkeletonText } from "@/src/components/Skeleton";
+import { Skeleton, SkeletonText } from "@/src/components/ui/Skeleton";
 import { parseCredentials } from "@/src/utils/credentials";
 import OrderStatusBadge from "./OrderStatusBadge";
 import { toProductPath } from "@/src/utils/slug";

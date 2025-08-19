@@ -5,15 +5,15 @@ import { toProductPath, slugify } from "@/src/utils/slug";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { type Product, type ProductOption } from "@/src/core/products";
-import { useToastContext } from "@/src/components/ToastProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 
-import ProductDetailSkeleton from "@/src/components/ProductDetailSkeleton";
-import ProductInfoTabs from "@/src/components/ProductInfoTabs";
-import ProductImage from "@/src/components/ProductImage";
-import ProductPurchaseForm from "@/src/components/ProductPurchaseForm";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import ConfirmPurchaseModal from "@/src/components/ConfirmPurchaseModal";
-import { useDataSync } from "@/src/components/DataSyncProvider";
+import ProductDetailSkeleton from "@/src/components/ui/ProductDetailSkeleton";
+import ProductInfoTabs from "@/src/components/product/ProductInfoTabs";
+import ProductImage from "@/src/components/product/ProductImage";
+import ProductPurchaseForm from "@/src/components/forms/ProductPurchaseForm";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import ConfirmPurchaseModal from "@/src/components/ui/ConfirmPurchaseModal";
+import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 
 // Custom hook for product data fetching
 function useProductData(id: string | undefined) {

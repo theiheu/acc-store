@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import AuthButton from "@/src/components/AuthButton";
+import AuthButton from "@/src/components/common/AuthButton";
 import { AccStoreLogo } from "@/src/components/branding";
 
 // Shared link styles

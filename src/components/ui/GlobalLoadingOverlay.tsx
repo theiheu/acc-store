@@ -1,6 +1,6 @@
 "use client";
 
-import { useGlobalLoading } from "./GlobalLoadingProvider";
+import { useGlobalLoading } from "../providers/GlobalLoadingProvider";
 import LoadingSpinner from "./LoadingSpinner";
 
 export default function GlobalLoadingOverlay() {
@@ -11,11 +11,11 @@ export default function GlobalLoadingOverlay() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         aria-hidden="true"
       />
-      
+
       {/* Loading Content */}
       <div className="relative z-10 flex flex-col items-center gap-4 rounded-xl bg-white dark:bg-gray-900 px-8 py-6 shadow-2xl border border-gray-200 dark:border-gray-800">
         <LoadingSpinner size="lg" />

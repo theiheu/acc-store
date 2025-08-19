@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { formatCurrency } from "@/src/core/admin";
 import { TopupRequest } from "@/src/core/admin";
-import QRCodeGenerator from "./QRCodeGenerator";
+import QRCodeGenerator from "@/src/components/ui/QRCodeGenerator";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
-import { useToastContext } from "@/src/components/ToastProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import {
   getStatusBadge,
   getStatusText,

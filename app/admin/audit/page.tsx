@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
 import { ActivityLog } from "@/src/core/admin";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 
 // Mock audit log data - in a real app, this would come from API
 const MOCK_AUDIT_LOGS: ActivityLog[] = [

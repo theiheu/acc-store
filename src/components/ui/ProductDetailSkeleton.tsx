@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonText } from "@/src/components/Skeleton";
+import { Skeleton, SkeletonText } from "@/src/components/ui/Skeleton";
 
 export default function ProductDetailSkeleton() {
   return (
@@ -38,4 +38,3 @@ export default function ProductDetailSkeleton() {
     </div>
   );
 }
-

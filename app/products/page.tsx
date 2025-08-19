@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import ProductCard from "@/src/components/ProductCard";
-import ProductCardSkeleton from "@/src/components/ProductCardSkeleton";
-import EmptyState from "@/src/components/EmptyState";
-import CategorySidebar from "@/src/components/CategorySidebar";
-import DebugPanel from "@/src/components/DebugPanel";
-import { useProductsWithLoading } from "@/src/components/DataSyncProvider";
+import ProductCard from "@/src/components/product/ProductCard";
+import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
+import EmptyState from "@/src/components/ui/EmptyState";
+import CategorySidebar from "@/src/components/layout/CategorySidebar";
+import DebugPanel from "@/src/components/ui/DebugPanel";
+import { useProductsWithLoading } from "@/src/components/providers/DataSyncProvider";
 import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 
 export default function ProductsPage() {

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Metadata } from "next";
-import { AdminAuthProvider } from "@/src/components/AdminAuthProvider";
+import { AdminAuthProvider } from "@/src/components/providers/AdminAuthProvider";
 
 export const metadata: Metadata = {
   title: "Quản trị hệ thống",

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useMemo, useCallback, memo } from "react";
 import { toProductPath, slugify } from "@/src/utils/slug";
 import type { Product } from "@/src/core/products";
-import { useGlobalLoading } from "./GlobalLoadingProvider";
+import { useGlobalLoading } from "../providers/GlobalLoadingProvider";
 import ProductCardImage from "./ProductCardImage";
 import ProductCardPrice from "./ProductCardPrice";
 import ProductCardContent from "./ProductCardContent";

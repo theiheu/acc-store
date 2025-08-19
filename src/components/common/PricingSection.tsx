@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatVND } from "@/src/utils/currency";
-import { useToastContext } from "@/src/components/ToastProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 
 type DepositQuery = {
   utm_source?: string;

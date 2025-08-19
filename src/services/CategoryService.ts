@@ -258,6 +258,3 @@ class CategoryService {
 
 // Export singleton instance
 export const categoryService = new CategoryService();
-
-// Export types
-export type { Category, CategoryWithStats, CategoryItem, CategoryCounts };

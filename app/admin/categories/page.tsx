@@ -1,18 +1,18 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import AdminLayout from "@/src/components/AdminLayout";
+import AdminLayout from "@/src/components/layout/AdminLayout";
 import {
   withAdminAuth,
   AdminPermissionGate,
-} from "@/src/components/AdminAuthProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
+} from "@/src/components/providers/AdminAuthProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import {
   useCategoryManagement,
   useCategorySearch,
 } from "@/src/hooks/useCategories";
 import { Category } from "@/src/services/CategoryService";
-import FeaturedProductsSelector from "@/src/components/FeaturedProductsSelector";
+import FeaturedProductsSelector from "@/src/components/forms/FeaturedProductsSelector";
 
 function AdminCategoriesPage() {
   const { show } = useToastContext();

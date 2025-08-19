@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useToastContext } from "@/src/components/ToastProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
-import QRCodeGenerator from "@/src/components/QRCodeGenerator";
-import TopupRequestHistory from "@/src/components/TopupRequestHistory";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import QRCodeGenerator from "@/src/components/ui/QRCodeGenerator";
+import TopupRequestHistory from "@/src/components/common/TopupRequestHistory";
 
 // Bank account configuration
 const BANK_CONFIG = {

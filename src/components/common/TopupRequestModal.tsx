@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useToastContext } from "./ToastProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import { formatCurrency } from "@/src/core/admin";
-import QRCodeGenerator from "./QRCodeGenerator";
+import QRCodeGenerator from "@/src/components/ui/QRCodeGenerator";
 
 // Bank account configuration
 const BANK_CONFIG = {
@@ -53,12 +53,12 @@ export default function TopupRequestModal({
     const numAmount = parseInt(amount.replace(/[^\d]/g, ""));
 
     if (!numAmount || numAmount < 10000) {
-      show("Số tiền tối thiểu là 10,000 ₫", "error");
+      show("Số tiền tối thiểu là 10,000 ₫");
       return;
     }
 
     if (numAmount > 10000000) {
-      show("Số tiền tối đa là 10,000,000 ₫", "error");
+      show("Số tiền tối đa là 10,000,000 ₫");
       return;
     }
 
@@ -85,16 +85,16 @@ export default function TopupRequestModal({
       const data = await response.json();
 
       if (data.success) {
-        show("Yêu cầu nạp tiền đã được tạo thành công!", "success");
+        show("Yêu cầu nạp tiền đã được tạo thành công!");
         setRequestId(data.data.requestId);
         setShowQR(true);
         // Don't close modal yet, show QR code first
       } else {
-        show(data.error || "Có lỗi xảy ra khi gửi yêu cầu", "error");
+        show(data.error || "Có lỗi xảy ra khi gửi yêu cầu");
       }
     } catch (error) {
       console.error("Error submitting top-up request:", error);
-      show("Có lỗi xảy ra khi gửi yêu cầu", "error");
+      show("Có lỗi xảy ra khi gửi yêu cầu");
     } finally {
       setIsSubmitting(false);
     }

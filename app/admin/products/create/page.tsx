@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
-import CategorySelect from "@/src/components/CategorySelect";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import CategorySelect from "@/src/components/forms/CategorySelect";
 import { type ProductOption } from "@/src/core/products";
 import type { SupplierInfo } from "@/src/core/admin";
-import LoadingButton from "@/src/components/LoadingButton";
-import OptionsEditor from "@/src/components/OptionsEditor";
+import LoadingButton from "@/src/components/ui/LoadingButton";
+import OptionsEditor from "@/src/components/forms/OptionsEditor";
 
 interface ProductFormData {
   title: string;

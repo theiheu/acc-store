@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import type { Product } from "@/src/core/products";
 import OrderCard from "@/src/components/orders/OrderCard";
 import OrderFilters, {

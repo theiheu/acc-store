@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useToastContext } from "@/src/components/ToastProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
 import { signIn, getProviders, useSession } from "next-auth/react";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 
 export default function LoginPage() {
   const router = useRouter();

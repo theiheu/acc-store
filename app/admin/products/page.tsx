@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AdminLayout from "@/src/components/AdminLayout";
-import { withAdminAuth } from "@/src/components/AdminAuthProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import { useToastContext } from "@/src/components/ToastProvider";
+import AdminLayout from "@/src/components/layout/AdminLayout";
+import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
 import { AdminProduct, PaginatedResponse } from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import { CATEGORIES } from "@/src/core/products";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 
 function ProductManagement() {
   const [products, setProducts] = useState<AdminProduct[]>([]);

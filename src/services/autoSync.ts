@@ -6,8 +6,11 @@ import { dataStore } from "@/src/core/data-store";
 import type { AdminProduct } from "@/src/core/admin";
 import { TapHoaMMOClient } from "@/src/services/taphoammo";
 
-const DEFAULT_INTERVAL_MS = Number(process.env.AUTO_SYNC_INTERVAL_MS || 5 * 60 * 1000); // 5 minutes
-const ENABLED = (process.env.AUTO_SYNC_ENABLED || "true").toLowerCase() !== "false";
+const DEFAULT_INTERVAL_MS = Number(
+  process.env.AUTO_SYNC_INTERVAL_MS || 5 * 60 * 1000
+); // 5 minutes
+const ENABLED =
+  (process.env.AUTO_SYNC_ENABLED || "true").toLowerCase() !== "false";
 
 function pickNumber(v: unknown, fallback: number): number {
   const n = Number(v);
@@ -25,17 +28,30 @@ async function syncOneProduct(p: AdminProduct) {
 
     if (Array.isArray(resp)) {
       const item: any = resp[0];
-      stock = pickNumber(item?.stock, p.stock);
-      basePrice = pickNumber(item?.price, p.supplier?.basePrice ?? p.price);
+      stock = pickNumber(item?.stock, p.stock ?? 0);
+      basePrice = pickNumber(
+        item?.price,
+        p.supplier?.basePrice !== undefined
+          ? p.supplier.basePrice
+          : p.price ?? 0
+      );
     } else if (resp && (resp as any).success === "true") {
       const obj: any = resp;
-      stock = pickNumber(obj?.stock, p.stock);
-      basePrice = pickNumber(obj?.price, p.supplier?.basePrice ?? p.price);
+      stock = pickNumber(obj?.stock, p.stock ?? 0);
+      basePrice = pickNumber(
+        obj?.price,
+        p.supplier?.basePrice !== undefined
+          ? p.supplier.basePrice
+          : p.price ?? 0
+      );
     }
 
     if (typeof stock === "number" || typeof basePrice === "number") {
       const markup = p.supplier?.markupPercent ?? 0;
-      const newPrice = basePrice && markup ? Math.round(basePrice * (1 + markup / 100)) : p.price;
+      const newPrice =
+        basePrice && markup
+          ? Math.round(basePrice * (1 + markup / 100))
+          : p.price;
       dataStore.updateProduct(
         p.id,
         {
@@ -54,7 +70,9 @@ async function syncOneProduct(p: AdminProduct) {
         "system",
         "AutoSync"
       );
-      console.log(`AutoSync: synced ${p.title} (stock=${stock}, basePrice=${basePrice}, price=${newPrice})`);
+      console.log(
+        `AutoSync: synced ${p.title} (stock=${stock}, basePrice=${basePrice}, price=${newPrice})`
+      );
     }
   } catch (e) {
     console.error(`AutoSync: error syncing product ${p.id}`, e);
@@ -65,7 +83,10 @@ async function runOneCycle() {
   try {
     const products = dataStore.getProducts();
     const candidates = products.filter(
-      (p) => p.isActive && p.supplier?.provider === "taphoammo" && p.supplier?.autoSync
+      (p) =>
+        p.isActive &&
+        p.supplier?.provider === "taphoammo" &&
+        p.supplier?.autoSync
     );
     if (candidates.length === 0) return;
     console.log(`AutoSync: running for ${candidates.length} products`);
@@ -102,4 +123,3 @@ export function stopAutoSync() {
     console.log("AutoSync: stopped");
   }
 }
-

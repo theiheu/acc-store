@@ -3,8 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAdminAuth, AdminPermissionGate } from "./AdminAuthProvider";
-import { useDataSync } from "@/src/components/DataSyncProvider";
+import {
+  useAdminAuth,
+  AdminPermissionGate,
+} from "../providers/AdminAuthProvider";
+import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import { AccStoreLogo } from "@/src/components/branding";
 
 interface SidebarItem {

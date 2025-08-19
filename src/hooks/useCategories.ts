@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useDataSync } from "@/src/components/DataSyncProvider";
+import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import {
   categoryService,
   CategoryItem,

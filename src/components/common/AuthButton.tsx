@@ -5,10 +5,13 @@ import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useToastContext } from "@/src/components/ToastProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
-import { useCurrentUser, useDataSync } from "@/src/components/DataSyncProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import {
+  useCurrentUser,
+  useDataSync,
+} from "@/src/components/providers/DataSyncProvider";
 import { useAccountRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 import { formatCurrency } from "@/src/core/admin";
 

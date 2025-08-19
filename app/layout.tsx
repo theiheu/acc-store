@@ -2,10 +2,10 @@ import React from "react";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/src/components/Navbar";
-import Footer from "@/src/components/Footer";
-import Loader from "@/src/components/Loader";
-import Providers from "@/src/components/Providers";
+import Navbar from "@/src/components/layout/Navbar";
+import Footer from "@/src/components/layout/Footer";
+import Loader from "@/src/components/ui/Loader";
+import Providers from "@/src/components/providers/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

@@ -6,16 +6,19 @@ import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { toProductPath } from "@/src/utils/slug";
-import { useToastContext } from "@/src/components/ToastProvider";
-import { useGlobalLoading } from "@/src/components/GlobalLoadingProvider";
-import { useCurrentUser, useDataSync } from "@/src/components/DataSyncProvider";
+import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import {
+  useCurrentUser,
+  useDataSync,
+} from "@/src/components/providers/DataSyncProvider";
 import {
   useRealtimeUpdates,
   useAccountRealtimeUpdates,
 } from "@/src/hooks/useRealtimeUpdates";
 import { formatCurrency } from "@/src/core/admin";
-import LoadingSpinner from "@/src/components/LoadingSpinner";
-import TopupRequestModal from "@/src/components/TopupRequestModal";
+import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
+import TopupRequestModal from "@/src/components/common/TopupRequestModal";
 import {
   getOrderStatusBadge,
   getOrderStatusText,

@@ -3,11 +3,11 @@
 import { useState, ReactNode } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useAdminAuth } from "./AdminAuthProvider";
-import { useGlobalLoading } from "./GlobalLoadingProvider";
-import { useToastContext } from "./ToastProvider";
+import { useAdminAuth } from "../providers/AdminAuthProvider";
+import { useGlobalLoading } from "../providers/GlobalLoadingProvider";
+import { useToastContext } from "../providers/ToastProvider";
 import AdminSidebar from "./AdminSidebar";
-import LoadingSpinner from "./LoadingSpinner";
+import LoadingSpinner from "../ui/LoadingSpinner";
 import { useAdminRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
 interface AdminLayoutProps {
