@@ -383,6 +383,11 @@ class DataStore {
     return this.users.get(id) || null;
   }
 
+  // Alias for getUser for consistency with API usage
+  getUserById(id: string): AdminUser | null {
+    return this.getUser(id);
+  }
+
   getUserByEmail(email: string): AdminUser | null {
     return (
       Array.from(this.users.values()).find((user) => user.email === email) ||

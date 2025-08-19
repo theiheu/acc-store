@@ -93,6 +93,62 @@ export interface Order {
   adminNotes?: string;
 }
 
+// Extended order interface for admin management
+export interface AdminOrder extends Order {
+  // Customer information
+  customerEmail: string;
+  customerName?: string;
+  customerBalance: number;
+  customerTotalOrders: number;
+
+  // Product information
+  productTitle: string;
+  productCategory?: string;
+  selectedOptionLabel?: string;
+
+  // Payment and processing details
+  processingStartedAt?: Date;
+  shippedAt?: Date;
+  deliveredAt?: Date;
+  refundAmount?: number;
+  refundReason?: string;
+  refundedBy?: string; // Admin ID who processed refund
+
+  // Admin tracking
+  lastModifiedBy?: string; // Admin ID
+  lastModifiedByName?: string; // Admin name
+  statusHistory: OrderStatusChange[];
+}
+
+// Order status change tracking
+export interface OrderStatusChange {
+  id: string;
+  orderId: string;
+  fromStatus: import("@/src/core/constants").OrderStatus;
+  toStatus: import("@/src/core/constants").OrderStatus;
+  changedBy: string; // Admin ID
+  changedByName: string; // Admin name
+  reason?: string;
+  notes?: string;
+  changedAt: Date;
+  ipAddress?: string;
+}
+
+// Order statistics for dashboard
+export interface OrderStats {
+  totalOrders: number;
+  pendingOrders: number;
+  processingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  refundedOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  todayOrders: number;
+  todayRevenue: number;
+  conversionRate: number;
+}
+
 // Dashboard statistics types
 export interface DashboardStats {
   totalUsers: number;
@@ -243,15 +299,59 @@ export interface ProductSearchFilters {
 }
 
 export interface OrderSearchFilters {
-  search?: string; // Search by order ID or user email
-  status?: Order["status"];
+  search?: string; // Search by order ID, user email, or customer name
+  status?: Order["status"] | Order["status"][];
   productId?: string;
+  categoryId?: string;
+  paymentMethod?: string;
   dateFrom?: Date;
   dateTo?: Date;
   minAmount?: number;
   maxAmount?: number;
-  sortBy?: "createdAt" | "totalAmount" | "status";
+  customerId?: string;
+  hasRefund?: boolean;
+  hasAdminNotes?: boolean;
+  sortBy?:
+    | "createdAt"
+    | "totalAmount"
+    | "status"
+    | "customerEmail"
+    | "updatedAt";
   sortOrder?: "asc" | "desc";
+  page?: number;
+  limit?: number;
+}
+
+// Order bulk operations
+export interface BulkOrderOperation {
+  action: "update_status" | "add_notes" | "export" | "refund";
+  orderIds: string[];
+  data?: {
+    status?: Order["status"];
+    notes?: string;
+    refundReason?: string;
+    refundAmount?: number;
+  };
+}
+
+// Order refund request
+export interface OrderRefundRequest {
+  orderId: string;
+  amount: number;
+  reason: string;
+  adminNotes?: string;
+  notifyCustomer?: boolean;
+}
+
+// Order export configuration
+export interface OrderExportConfig {
+  format: "csv" | "excel" | "pdf";
+  filters: OrderSearchFilters;
+  fields: string[];
+  dateRange?: {
+    from: Date;
+    to: Date;
+  };
 }
 
 // Form validation types

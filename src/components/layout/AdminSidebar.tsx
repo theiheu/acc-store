@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,6 +7,7 @@ import {
   AdminPermissionGate,
 } from "../providers/AdminAuthProvider";
 import { useDataSync } from "@/src/components/providers/DataSyncProvider";
+import { usePendingOrdersCount } from "@/src/hooks/useOrderStats";
 import { AccStoreLogo } from "@/src/components/branding";
 
 interface SidebarItem {
@@ -61,7 +61,6 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
     icon: "🛒",
     href: "/admin/orders",
     permission: "canManageOrders",
-    badge: "23", // Mock pending orders count
   },
   {
     id: "analytics",
@@ -95,6 +94,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const { getPendingTopupRequests } = useDataSync();
   const pendingTopupCount = getPendingTopupRequests().length;
+  const pendingOrdersCount = usePendingOrdersCount();
   const { adminProfile } = useAdminAuth();
 
   return (
@@ -115,11 +115,22 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       >
         {/* Header */}
         <div className="h-16 px-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <AccStoreLogo variant="horizontal" size="md" />
-          </Link>
-
+          {/* Admin info */}
+          <div className="flex items-center gap-3 p-4">
+            <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-300/10 flex items-center justify-center">
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {adminProfile?.name?.charAt(0).toUpperCase() || "A"}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                {adminProfile?.name || "Admin User"}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {adminProfile?.email}
+              </p>
+            </div>
+          </div>
           {/* Close button for mobile */}
           <button
             onClick={onClose}
@@ -127,23 +138,6 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           >
             <span className="text-xl">✕</span>
           </button>
-        </div>
-
-        {/* Admin info */}
-        <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-300/10 flex items-center justify-center">
-            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              {adminProfile?.name?.charAt(0).toUpperCase() || "A"}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-              {adminProfile?.name || "Admin User"}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-              {adminProfile?.email}
-            </p>
-          </div>
         </div>
 
         {/* Navigation */}
@@ -161,10 +155,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               >
                 <span className="text-lg">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
-                {/* Orders badge (static mock) */}
-                {item.badge && item.id !== "topup-requests" && (
-                  <span className="px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300 rounded-full">
-                    {item.badge}
+                {/* Dynamic pending orders count */}
+                {item.id === "orders" && pendingOrdersCount > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-300/10 text-yellow-700 dark:text-yellow-300 rounded-full">
+                    {pendingOrdersCount}
                   </span>
                 )}
                 {/* Dynamic pending top-up count */}
