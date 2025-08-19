@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
-import { TapHoaMMOClient, parseCredential } from "@/src/services/taphoammo";
+import { TapHoaMMOClient } from "@/src/services/taphoammo";
 import { ORDER_STATUS } from "@/src/core/constants";
+import { getOrderProcessor } from "@/src/services/orderProcessor";
 import type { Order } from "@/src/core/admin";
 
 // Helper response utilities for consistency
@@ -217,75 +218,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Poll/Fetch products credentials
+    // Add to background processing queue instead of synchronous polling
     const upstreamOrderId = buyResp.order_id;
-    let attempts = 0;
-    const maxAttempts = 10;
-    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    let creds: string[] = [];
+    const processor = getOrderProcessor();
+    processor.addJob(order.id, upstreamOrderId, kioskToken);
 
-    while (attempts < maxAttempts) {
-      const info = await supplier.getProducts(upstreamOrderId);
-      if (info.success === "true" && info.data) {
-        creds = info.data.map((d) => d.product);
-        break;
-      }
-      if (info.description && /processing/i.test(info.description)) {
-        attempts++;
-        await sleep(1500);
-        continue;
-      }
-      // Other failure
-      break;
-    }
-
-    if (creds.length === 0) {
-      // Mark still pending so admin can investigate
-      return NextResponse.json({
-        success: true,
-        data: { orderId: order.id, status: ORDER_STATUS.PENDING },
-      });
-    }
-
-    // Format delivery info
-    const parsed = creds.map((raw) => parseCredential(raw));
-    const deliveryInfo = JSON.stringify(parsed);
-
-    dataStore.updateOrder(order.id, {
-      status: ORDER_STATUS.COMPLETED,
-      updatedAt: new Date(),
-      completedAt: new Date(),
-      deliveryInfo,
-    });
-
-    // Update product sold counter and stock
-    const currentProduct = dataStore.getProduct(productId);
-    if (currentProduct) {
-      let updatedOptions = currentProduct.options;
-      let updatedStock = currentProduct.stock;
-
-      if (hasOptions && selectedOptionId && updatedOptions) {
-        // Update option stock if an option was selected
-        updatedOptions = updatedOptions.map((opt) =>
-          opt.id === selectedOptionId
-            ? { ...opt, stock: Math.max(0, opt.stock - quantity) }
-            : opt
-        );
-      } else if (!hasOptions && currentProduct.stock !== undefined) {
-        // Update main product stock if no options
-        updatedStock = Math.max(0, currentProduct.stock - quantity);
-      }
-
-      dataStore.updateProduct(productId, {
-        sold: (currentProduct.sold || 0) + quantity,
-        options: updatedOptions,
-        stock: updatedStock,
-      });
-    }
-
+    // Return immediately with pending status
     return NextResponse.json({
       success: true,
-      data: { orderId: order.id, credentials: parsed },
+      data: {
+        orderId: order.id,
+        status: ORDER_STATUS.PENDING,
+        message:
+          "Đơn hàng đang được xử lý. Bạn sẽ nhận được thông báo khi hoàn tất.",
+      },
     });
   } catch (error) {
     console.error("Create order error:", error);

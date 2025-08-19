@@ -2,11 +2,13 @@ import { NextRequest } from "next/server";
 import { dataStore, DataStoreEvent } from "@/src/core/data-store";
 
 import { ensureAutoSyncStarted } from "@/src/services/autoSync";
+import { getOrderProcessor } from "@/src/services/orderProcessor";
 
 // Server-Sent Events endpoint for real-time updates
-// Ensure background auto sync is running on first SSE connection
+// Ensure background services are running on first SSE connection
 try {
   ensureAutoSyncStarted();
+  getOrderProcessor(); // Initialize order processor
 } catch {}
 
 export async function GET(request: NextRequest) {

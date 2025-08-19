@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Skeleton, SkeletonText } from "@/src/components/Skeleton";
@@ -30,6 +31,9 @@ export default function OrderCard({
   loadingProduct?: boolean;
   onCopy: (text: string) => void;
 }) {
+  const [processingStatus, setProcessingStatus] = useState<any>(null);
+  const [isPolling, setIsPolling] = useState(false);
+
   const p = product;
   const optionLabel = p?.options?.find(
     (op) => op.id === order.selectedOptionId
@@ -37,6 +41,41 @@ export default function OrderCard({
   const title = p?.title || "Sản phẩm không xác định";
   const time = order.updatedAt ?? order.createdAt;
   const dateStr = time ? new Date(time).toLocaleString("vi-VN") : "";
+
+  // Poll order status for pending orders
+  useEffect(() => {
+    if (order.status !== "pending") return;
+
+    setIsPolling(true);
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`/api/orders/${order.id}/status`);
+        const data = await res.json();
+        if (data.success) {
+          setProcessingStatus(data.data);
+          // Stop polling if order is completed
+          if (data.data.status !== "pending") {
+            setIsPolling(false);
+            // Trigger page refresh to update order list
+            window.location.reload();
+          }
+        }
+      } catch (error) {
+        console.error("Error polling order status:", error);
+      }
+    };
+
+    // Initial poll
+    pollStatus();
+
+    // Poll every 5 seconds for pending orders
+    const interval = setInterval(pollStatus, 5000);
+
+    return () => {
+      clearInterval(interval);
+      setIsPolling(false);
+    };
+  }, [order.id, order.status]);
 
   const numericId = (id?: string) => {
     if (!id) return "—";
@@ -99,6 +138,37 @@ export default function OrderCard({
               </div>
               <div className="mt-1">
                 <OrderStatusBadge status={order.status} dateStr={dateStr} />
+                {/* Processing status for pending orders */}
+                {order.status === "pending" && processingStatus?.processing && (
+                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span>
+                        Đang xử lý... (lần thử{" "}
+                        {processingStatus.processing.attempts})
+                      </span>
+                    </div>
+                    {processingStatus.processing.nextRetryAt && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Thử lại sau:{" "}
+                        {new Date(
+                          processingStatus.processing.nextRetryAt
+                        ).toLocaleTimeString("vi-VN")}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Show polling indicator */}
+                {order.status === "pending" &&
+                  isPolling &&
+                  !processingStatus?.processing && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+                        <span>Đang kiểm tra trạng thái...</span>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
           </div>
