@@ -15,7 +15,7 @@ interface StatsGridProps {
 
 function StatsGrid({ stats, realtimeStats }: StatsGridProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-6">
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -100,6 +100,57 @@ function StatsGrid({ stats, realtimeStats }: StatsGridProps) {
               💰
             </span>
             <span className="sr-only">Doanh thu</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Profit Metrics */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Lợi nhuận tháng
+            </p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(stats.totalProfit || 0)}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              TB: {formatCurrency(stats.averageProfit || 0)}/đơn
+            </p>
+          </div>
+          <div className="w-12 h-12 bg-green-100 dark:bg-green-300/10 rounded-lg flex items-center justify-center">
+            <span className="text-2xl" aria-hidden="true">
+              📈
+            </span>
+            <span className="sr-only">Lợi nhuận</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Tỷ suất lợi nhuận
+            </p>
+            <p
+              className={`text-2xl font-bold ${
+                (stats.profitMargin || 0) >= 0
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              }`}
+            >
+              {(stats.profitMargin || 0).toFixed(1)}%
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Chi phí: {formatCurrency(stats.totalCosts || 0)}
+            </p>
+          </div>
+          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-300/10 rounded-lg flex items-center justify-center">
+            <span className="text-2xl" aria-hidden="true">
+              📊
+            </span>
+            <span className="sr-only">Tỷ suất lợi nhuận</span>
           </div>
         </div>
       </div>

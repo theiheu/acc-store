@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/src/core/admin-auth";
+import { calculateProductCost } from "@/src/core/admin";
 import { dataStore } from "@/src/core/data-store";
 import { ORDER_STATUS } from "@/src/core/constants";
 import { format, subDays } from "date-fns";
@@ -19,13 +20,11 @@ export async function GET(request: NextRequest) {
     // Get raw order data
     const allOrders = dataStore.getAllOrders();
     const ordersInRange = allOrders.filter(
-      order => 
-        order.createdAt >= startDate && 
-        order.createdAt <= endDate
+      (order) => order.createdAt >= startDate && order.createdAt <= endDate
     );
 
     const completedOrders = ordersInRange.filter(
-      order => order.status === ORDER_STATUS.COMPLETED
+      (order) => order.status === ORDER_STATUS.COMPLETED
     );
 
     // Calculate basic metrics
@@ -36,32 +35,24 @@ export async function GET(request: NextRequest) {
 
     // Get products for cost calculation
     const products = dataStore.getProducts();
-    const productMap = new Map(products.map(p => [p.id, p]));
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
     // Calculate costs
     let totalCosts = 0;
-    const costBreakdown = completedOrders.map(order => {
+    const costBreakdown = completedOrders.map((order) => {
       const product = productMap.get(order.productId);
-      let unitCost = 0;
-      
-      if (product) {
-        if (order.selectedOptionId && product.options) {
-          const selectedOption = product.options.find(opt => opt.id === order.selectedOptionId);
-          if (selectedOption) {
-            unitCost = selectedOption.basePrice || (selectedOption.price * 0.7);
-          }
-        } else if (product.price) {
-          unitCost = product.price * 0.7;
-        }
-      }
-      
+
+      // Use standardized cost calculation
+      const unitCost = product
+        ? calculateProductCost(product, order.selectedOptionId)
+        : 0;
       const orderCost = unitCost * order.quantity;
       totalCosts += orderCost;
-      
+
       return {
         orderId: order.id,
         productId: order.productId,
-        productTitle: product?.title || 'Unknown',
+        productTitle: product?.title || "Unknown",
         quantity: order.quantity,
         revenue: order.totalAmount,
         unitCost,
@@ -80,8 +71,8 @@ export async function GET(request: NextRequest) {
       success: true,
       debug: {
         period: {
-          startDate: format(startDate, 'yyyy-MM-dd'),
-          endDate: format(endDate, 'yyyy-MM-dd'),
+          startDate: format(startDate, "yyyy-MM-dd"),
+          endDate: format(endDate, "yyyy-MM-dd"),
           days,
         },
         rawData: {
@@ -91,7 +82,10 @@ export async function GET(request: NextRequest) {
           totalRevenue,
           totalCosts,
           calculatedProfit: totalRevenue - totalCosts,
-          profitMargin: totalRevenue > 0 ? ((totalRevenue - totalCosts) / totalRevenue) * 100 : 0,
+          profitMargin:
+            totalRevenue > 0
+              ? ((totalRevenue - totalCosts) / totalRevenue) * 100
+              : 0,
         },
         orderBreakdown: costBreakdown.slice(0, 10), // First 10 orders
         profitAnalysis: {
@@ -108,8 +102,13 @@ export async function GET(request: NextRequest) {
           }, {} as Record<string, number>),
         },
         validation: {
-          revenueMatch: Math.abs(profitAnalysis.revenue.total - totalRevenue) < 0.01,
-          hasValidStructure: !!(profitAnalysis.revenue && profitAnalysis.costs && profitAnalysis.profit),
+          revenueMatch:
+            Math.abs(profitAnalysis.revenue.total - totalRevenue) < 0.01,
+          hasValidStructure: !!(
+            profitAnalysis.revenue &&
+            profitAnalysis.costs &&
+            profitAnalysis.profit
+          ),
         },
       },
     });

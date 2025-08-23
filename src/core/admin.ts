@@ -459,11 +459,51 @@ export function calculateProfitMargin(
   sellingPrice: number,
   costPrice: number
 ): number {
-  if (costPrice === 0) return 0;
+  if (sellingPrice === 0) return 0;
   return ((sellingPrice - costPrice) / sellingPrice) * 100;
 }
 
-// Calculate profit for an order
+// Standardized cost calculation function
+export function calculateProductCost(
+  product: Product,
+  selectedOptionId?: string
+): number {
+  let costPrice = 0;
+
+  // Priority 1: Selected option basePrice
+  if (selectedOptionId && product.options) {
+    const selectedOption = product.options.find(
+      (opt) => opt.id === selectedOptionId
+    );
+    if (selectedOption?.basePrice) {
+      return selectedOption.basePrice;
+    }
+  }
+
+  // Priority 2: Product supplier basePrice
+  if ((product as any).supplier?.basePrice) {
+    return (product as any).supplier.basePrice;
+  }
+
+  // Priority 3: Selected option price * 0.7 (fallback)
+  if (selectedOptionId && product.options) {
+    const selectedOption = product.options.find(
+      (opt) => opt.id === selectedOptionId
+    );
+    if (selectedOption?.price) {
+      return selectedOption.price * 0.7;
+    }
+  }
+
+  // Priority 4: Product price * 0.7 (final fallback)
+  if ((product as any).price) {
+    return (product as any).price * 0.7;
+  }
+
+  return 0;
+}
+
+// Calculate profit for an order using standardized cost calculation
 export function calculateOrderProfit(
   order: AdminOrder,
   product?: Product
@@ -472,26 +512,9 @@ export function calculateOrderProfit(
     return { profit: 0, cost: 0, margin: 0 };
   }
 
-  let costPrice = 0;
-  let sellingPrice = order.unitPrice;
-
-  // Get cost from product option if available
-  if (order.selectedOptionId && product.options) {
-    const selectedOption = product.options.find(
-      (opt) => opt.id === order.selectedOptionId
-    );
-    if (selectedOption?.basePrice) {
-      costPrice = selectedOption.basePrice;
-    }
-  }
-
-  // Fallback to product base price or estimate
-  if (costPrice === 0) {
-    // If no cost data available, estimate based on selling price (conservative 70% cost ratio)
-    costPrice = sellingPrice * 0.7;
-  }
-
-  const totalCost = costPrice * order.quantity;
+  // Use standardized cost calculation
+  const unitCost = calculateProductCost(product, order.selectedOptionId);
+  const totalCost = unitCost * order.quantity;
   const profit = order.totalAmount - totalCost;
   const margin = calculateProfitMargin(order.totalAmount, totalCost);
 

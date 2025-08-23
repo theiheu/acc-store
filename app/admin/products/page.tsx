@@ -6,7 +6,12 @@ import AdminLayout from "@/src/components/layout/AdminLayout";
 import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
 import { useToastContext } from "@/src/components/providers/ToastProvider";
-import { AdminProduct, PaginatedResponse } from "@/src/core/admin";
+import {
+  AdminProduct,
+  PaginatedResponse,
+  calculateProductCost,
+  calculateProfitMargin,
+} from "@/src/core/admin";
 import { formatCurrency } from "@/src/core/admin";
 import { CATEGORIES } from "@/src/core/products";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
@@ -258,6 +263,9 @@ function ProductManagement() {
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[100px]">
                       Giá
                     </th>
+                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[100px]">
+                      Lợi nhuận
+                    </th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[80px]">
                       Kho
                     </th>
@@ -311,6 +319,45 @@ function ProductManagement() {
                           </div>
                         )}
                       </td>
+
+                      {/* Profit Column */}
+                      <td className="px-3 py-4">
+                        {(() => {
+                          // Calculate profit for main product or first option
+                          const price = getDisplayPrice(product);
+                          const cost = calculateProductCost(product as any);
+                          const profit = price - cost;
+                          const margin = calculateProfitMargin(price, cost);
+
+                          return (
+                            <div className="space-y-1">
+                              <div
+                                className={`text-sm font-medium ${
+                                  profit >= 0
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                                }`}
+                              >
+                                {formatCurrency(profit)}
+                              </div>
+                              <div
+                                className={`text-xs px-2 py-0.5 rounded-full ${
+                                  margin >= 30
+                                    ? "bg-green-100 dark:bg-green-300/10 text-green-700 dark:text-green-300"
+                                    : margin >= 10
+                                    ? "bg-blue-100 dark:bg-blue-300/10 text-blue-700 dark:text-blue-300"
+                                    : margin >= 0
+                                    ? "bg-yellow-100 dark:bg-yellow-300/10 text-yellow-700 dark:text-yellow-300"
+                                    : "bg-red-100 dark:bg-red-300/10 text-red-700 dark:text-red-300"
+                                }`}
+                              >
+                                {margin.toFixed(1)}%
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
                       <td className="px-3 py-4">
                         <span
                           className={`text-sm font-medium ${
