@@ -41,7 +41,7 @@ export interface SupplierInfo {
 // Product management types
 export interface AdminProduct extends Product {
   stock: number;
-  sold: number;
+
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;

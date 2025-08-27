@@ -1,4 +1,13 @@
 import { NextResponse, NextRequest } from "next/server";
+import {
+  adminRateLimit,
+  publicRateLimit,
+  authRateLimit,
+  paymentRateLimit,
+  getClientIP,
+  checkRateLimit,
+  createRateLimitResponse,
+} from "./src/core/rate-limit";
 
 function isUUIDLike(id: string): boolean {
   // Very light heuristic: our ids are like product-<timestamp>-<random>
@@ -8,6 +17,44 @@ function isUUIDLike(id: string): boolean {
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const { pathname, origin } = url;
+
+  // Rate limiting for API routes (temporarily disabled for development)
+  // TODO: Re-enable after fixing edge runtime compatibility
+  /*
+  if (pathname.startsWith("/api")) {
+    const clientIP = getClientIP(req);
+    let rateLimit;
+    let identifier = clientIP;
+
+    if (pathname.startsWith("/api/admin")) {
+      rateLimit = adminRateLimit;
+      identifier = `admin_${clientIP}`;
+    } else if (pathname.startsWith("/api/auth") || pathname.includes("login")) {
+      rateLimit = authRateLimit;
+      identifier = `auth_${clientIP}`;
+    } else if (
+      pathname.startsWith("/api/payment") ||
+      pathname.startsWith("/api/topup")
+    ) {
+      rateLimit = paymentRateLimit;
+      identifier = `payment_${clientIP}`;
+    } else {
+      rateLimit = publicRateLimit;
+      identifier = `public_${clientIP}`;
+    }
+
+    const result = await checkRateLimit(rateLimit, identifier);
+
+    if (!result.success) {
+      console.warn(`Rate limit exceeded for ${identifier} on ${pathname}`);
+      return createRateLimitResponse(
+        result.limit,
+        result.remaining,
+        result.reset
+      );
+    }
+  }
+  */
 
   // Normalize Vietnamese alias to canonical /products
   if (pathname === "/san-pham") {
@@ -107,5 +154,14 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/products/:path*", "/san-pham/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+  ],
 };

@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Then by sold count (highest first)
-      return (b.sold || 0) - (a.sold || 0);
+      return (b.soldCount || 0) - (a.soldCount || 0);
     });
 
     return new NextResponse(JSON.stringify({ success: true, data: products }), {

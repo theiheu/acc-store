@@ -47,12 +47,13 @@ export type Product = {
   originalLink?: string; // Link gốc/nguồn sản phẩm
   // Admin fields (optional for backward compatibility)
   stock?: number; // Optional - only used when no options available
-  sold?: number;
+  soldCount?: number;
   isActive?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   createdBy?: string;
   lastModifiedBy?: string;
+  deletedAt?: Date; // Soft delete timestamp
 };
 
 export const products: Product[] = [

@@ -10,6 +10,13 @@ import {
   PaginatedResponse,
 } from "@/src/core/admin";
 import { dataStore } from "@/src/core/data-store";
+import {
+  CreateProductSchema,
+  PaginationSchema,
+  validateRequest,
+  createValidationErrorResponse,
+} from "@/src/core/validation";
+import { z } from "zod";
 
 // GET /api/admin/products - List products with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -20,15 +27,37 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Parse query parameters
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
-    const search = searchParams.get("search") || "";
-    const category = searchParams.get("category") || "";
-    const isActive = searchParams.get("isActive");
-    const lowStock = searchParams.get("lowStock") === "true";
-    const sortBy = searchParams.get("sortBy") || "createdAt";
-    const sortOrder = searchParams.get("sortOrder") || "desc";
+    // Validate query parameters
+    const queryParams = Object.fromEntries(searchParams.entries());
+    const validation = validateRequest(
+      PaginationSchema.extend({
+        search: z.string().optional(),
+        category: z.string().optional(),
+        isActive: z.enum(["true", "false"]).optional(),
+        lowStock: z.enum(["true", "false"]).optional(),
+        sortBy: z.string().default("createdAt"),
+        sortOrder: z.enum(["asc", "desc"]).default("desc"),
+      }),
+      queryParams
+    );
+
+    if (!validation.success) {
+      return createValidationErrorResponse(
+        validation.error,
+        validation.details
+      );
+    }
+
+    const {
+      page,
+      limit,
+      search = "",
+      category = "",
+      isActive,
+      lowStock,
+      sortBy,
+      sortOrder,
+    } = validation.data;
 
     // Get products from data store
     let filteredProducts = dataStore.getProducts();
@@ -124,40 +153,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const productData = await request.json();
+    const rawData = await request.json();
 
-    // Validate required fields
-    if (
-      !productData.title ||
-      !productData.description ||
-      !productData.category
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Title, description, and category are required",
-        },
-        { status: 400 }
+    // Validate product data
+    const validation = validateRequest(CreateProductSchema, rawData);
+    if (!validation.success) {
+      return createValidationErrorResponse(
+        validation.error,
+        validation.details
       );
     }
 
-    const hasOptions =
-      productData.options &&
-      Array.isArray(productData.options) &&
-      productData.options.length > 0;
-
-    if (!hasOptions) {
-      // When no options, require main product price
-      if (!productData.price || productData.price <= 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Price must be greater than 0 when no options are provided",
-          },
-          { status: 400 }
-        );
-      }
-    }
+    const productData = validation.data;
 
     // Validate options if provided
     if (productData.options && Array.isArray(productData.options)) {
@@ -223,7 +230,7 @@ export async function POST(request: NextRequest) {
       options: productData.options || [],
       originalLink: productData.originalLink,
       stock: productData.stock || 0,
-      sold: 0,
+      soldCount: productData.soldCount || 0,
       isActive: productData.isActive !== false, // Default to true unless explicitly false
       createdBy: admin.id,
       lastModifiedBy: admin.id,

@@ -127,12 +127,14 @@ class DataStore {
       console.log("DataStore: Persisting", productsArray.length, "products");
       console.log(
         "DataStore: Products categories:",
-        productsArray.map((p) => ({
-          id: p.id,
-          title: p.title,
-          category: p.category,
-          isActive: p.isActive,
-        }))
+        productsArray.map(
+          (p): Product => ({
+            id: p.id,
+            title: p.title,
+            category: p.category,
+            isActive: p.isActive,
+          })
+        )
       );
 
       __fs.writeFileSync(this.files.products, toJSON(productsArray), "utf-8");
@@ -210,6 +212,11 @@ class DataStore {
       if (Array.isArray(products)) {
         products.forEach((p) => {
           reviveDates(p);
+          // Migration for soldCount
+          if (p.sold !== undefined && p.soldCount === undefined) {
+            p.soldCount = p.sold;
+            delete p.sold;
+          }
           this.products.set(p.id, p);
         });
       }
@@ -339,7 +346,7 @@ class DataStore {
         ...product,
         // Set realistic initial values instead of random
         stock: 100, // Default stock level
-        sold: 0, // Start with no sales
+        soldCount: 0, // Start with no sales
         isActive: true, // All homepage products are active by default
         createdAt: new Date(), // Current date for new initialization
         updatedAt: new Date(),
@@ -1051,13 +1058,28 @@ class DataStore {
 
   // Product operations
   getProducts(): AdminProduct[] {
+    // Filter out soft-deleted products by default
+    return Array.from(this.products.values()).filter(
+      (product) => !product.deletedAt
+    );
+  }
+
+  getAllProducts(): AdminProduct[] {
+    // Get all products including soft-deleted ones
     return Array.from(this.products.values());
+  }
+
+  getDeletedProducts(): AdminProduct[] {
+    // Get only soft-deleted products
+    return Array.from(this.products.values()).filter(
+      (product) => product.deletedAt
+    );
   }
 
   getActiveProducts(): AdminProduct[] {
     // Treat undefined as active for backward compatibility with older persisted data
     return Array.from(this.products.values()).filter(
-      (product) => product.isActive !== false
+      (product) => product.isActive !== false && !product.deletedAt
     );
   }
 
@@ -1175,22 +1197,145 @@ class DataStore {
 
   deleteProduct(id: string, adminId?: string, adminName?: string): boolean {
     const product = this.products.get(id);
+
+    if (!product) {
+      return false;
+    }
+
+    // Check if product has pending orders
+    const pendingOrders = this.getAllOrders().filter(
+      (order) => order.productId === id && order.status === "pending"
+    );
+
+    if (pendingOrders.length > 0) {
+      throw new Error(
+        `Không thể xóa sản phẩm vì có ${pendingOrders.length} đơn hàng đang chờ xử lý`
+      );
+    }
+
+    // Soft delete: set deletedAt timestamp
+    const updatedProduct: AdminProduct = {
+      ...product,
+      deletedAt: new Date(),
+      updatedAt: new Date(),
+      lastModifiedBy: adminId || "system",
+    };
+
+    this.products.set(id, updatedProduct);
+
+    // Log activity
+    this.logActivity({
+      adminId: adminId || "system",
+      adminName: adminName || "System",
+      action: "Xóa sản phẩm",
+      targetType: "product",
+      targetId: id,
+      description: `Đã xóa sản phẩm: ${product.title}`,
+      metadata: {
+        softDelete: true,
+        deletedAt: updatedProduct.deletedAt.toISOString(),
+      },
+    });
+
+    this.emit({
+      type: "PRODUCT_DELETED",
+      payload: { productId: id, softDelete: true },
+    });
+
+    // Persist changes
+    this.scheduleSave();
+
+    return true;
+  }
+
+  // Method to permanently delete a product (admin only)
+  permanentlyDeleteProduct(
+    id: string,
+    adminId?: string,
+    adminName?: string
+  ): boolean {
+    const product = this.products.get(id);
+
+    if (!product) {
+      return false;
+    }
+
+    // Check if product has any orders (completed or otherwise)
+    const relatedOrders = this.getAllOrders().filter(
+      (order) => order.productId === id
+    );
+
+    if (relatedOrders.length > 0) {
+      throw new Error(
+        `Không thể xóa vĩnh viễn sản phẩm vì có ${relatedOrders.length} đơn hàng liên quan`
+      );
+    }
+
     const deleted = this.products.delete(id);
 
-    if (deleted && product) {
+    if (deleted) {
       // Log activity
       this.logActivity({
         adminId: adminId || "system",
         adminName: adminName || "System",
-        action: "Xóa sản phẩm",
+        action: "Xóa vĩnh viễn sản phẩm",
         targetType: "product",
         targetId: id,
-        description: `Đã xóa sản phẩm: ${product.title}`,
+        description: `Đã xóa vĩnh viễn sản phẩm: ${product.title}`,
+        metadata: {
+          permanentDelete: true,
+        },
       });
 
-      this.emit({ type: "PRODUCT_DELETED", payload: { productId: id } });
+      this.emit({
+        type: "PRODUCT_PERMANENTLY_DELETED",
+        payload: { productId: id },
+      });
+
+      // Persist changes
+      this.scheduleSave();
     }
+
     return deleted;
+  }
+
+  // Method to restore a soft-deleted product
+  restoreProduct(
+    id: string,
+    adminId?: string,
+    adminName?: string
+  ): AdminProduct | null {
+    const product = this.products.get(id);
+
+    if (!product || !product.deletedAt) {
+      return null;
+    }
+
+    const restoredProduct: AdminProduct = {
+      ...product,
+      deletedAt: undefined,
+      updatedAt: new Date(),
+      lastModifiedBy: adminId || "system",
+    };
+
+    this.products.set(id, restoredProduct);
+
+    // Log activity
+    this.logActivity({
+      adminId: adminId || "system",
+      adminName: adminName || "System",
+      action: "Khôi phục sản phẩm",
+      targetType: "product",
+      targetId: id,
+      description: `Đã khôi phục sản phẩm: ${product.title}`,
+    });
+
+    this.emit({ type: "PRODUCT_RESTORED", payload: restoredProduct });
+
+    // Persist changes
+    this.scheduleSave();
+
+    return restoredProduct;
   }
 
   // Transaction operations
@@ -1432,23 +1577,25 @@ class DataStore {
   getPublicProducts(): Product[] {
     const products = Array.from(this.products.values())
       .filter((p) => p.isActive !== false)
-      .map((p) => ({
-        id: p.id,
-        title: p.title,
-        description: p.description,
-        price: p.price,
-        currency: p.currency,
-        imageEmoji: p.imageEmoji,
-        imageUrl: p.imageUrl,
-        badge: p.badge,
-        longDescription: p.longDescription,
-        faqs: p.faqs,
-        category: p.category,
-        options: p.options,
-        stock: p.stock,
-        createdAt: p.createdAt,
-        sold: p.sold,
-      }))
+      .map(
+        (p): Product => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          price: p.price,
+          currency: p.currency,
+          imageEmoji: p.imageEmoji,
+          imageUrl: p.imageUrl,
+          badge: p.badge,
+          longDescription: p.longDescription,
+          faqs: p.faqs,
+          category: p.category,
+          options: p.options,
+          stock: p.stock,
+          createdAt: p.createdAt,
+          soldCount: p.soldCount,
+        })
+      )
       .sort((a, b) => {
         // Sort by creation date (newest first)
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -1457,7 +1604,7 @@ class DataStore {
           return dateB - dateA; // Newest first
         }
         // Then by sold count (highest first)
-        return (b.sold || 0) - (a.sold || 0);
+        return (b.soldCount || 0) - (a.soldCount || 0);
       });
 
     return products;

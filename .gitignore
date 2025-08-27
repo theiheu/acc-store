@@ -42,3 +42,8 @@ next-env.d.ts
 
 # data files (runtime generated)
 .data/
+
+
+# Custom test and debug files
+*test*.js
+*debug*.js

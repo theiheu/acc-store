@@ -42,6 +42,7 @@ const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
       <ProductCardContent
         title={product.title}
         description={product.description}
+        soldCount={product.soldCount}
       />
 
       <ProductCardPrice product={product} />

@@ -28,6 +28,7 @@ interface ProductFormData {
   isActive: boolean;
   options?: ProductOption[];
   supplier?: SupplierInfo;
+  soldCount?: number;
 }
 
 function EditProduct() {
@@ -53,6 +54,7 @@ function EditProduct() {
     originalLink: "", // Link gốc/nguồn sản phẩm
     stock: undefined, // Start as undefined
     isActive: true,
+    soldCount: undefined,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -101,6 +103,8 @@ function EditProduct() {
           isActive: productData.isActive !== false,
           options: productData.options || [],
           supplier: productData.supplier,
+          soldCount:
+            productData.soldCount !== undefined ? productData.soldCount : 0,
         });
       } else {
         show("Không thể tải thông tin sản phẩm");
@@ -505,6 +509,26 @@ function EditProduct() {
               </div>
               <div className="col-span-2 text-xs text-gray-500">
                 Gợi ý giá bán = Giá gốc × (1 + % lợi nhuận). Bạn có thể chỉnh
+                <div>
+                  <label className="block text-sm font-medium">Đã bán</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.soldCount || 0}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleInputChange(
+                        "soldCount",
+                        value === "" ? 0 : Number(value) || 0
+                      );
+                    }}
+                    className="mt-1 w-full border rounded-md px-3 py-2"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Số lượng sản phẩm đã bán (cập nhật thủ công).
+                  </p>
+                </div>
                 tay ô Giá bán ở trái.
               </div>
             </div>

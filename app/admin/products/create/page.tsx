@@ -27,6 +27,7 @@ interface ProductFormData {
   isActive: boolean;
   options?: ProductOption[];
   supplier?: SupplierInfo;
+  soldCount?: number;
 }
 
 function CreateProduct() {
@@ -49,6 +50,7 @@ function CreateProduct() {
     stock: undefined, // Start as undefined - will be set if no options
     isActive: true,
     options: [],
+    soldCount: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -492,6 +494,28 @@ function CreateProduct() {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Cài đặt
             </h3>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Đã bán
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.soldCount || 0}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  handleInputChange(
+                    "soldCount",
+                    value === "" ? 0 : Number(value) || 0
+                  );
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                placeholder="0"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Số lượng đã bán ban đầu (tùy chọn).
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>

@@ -107,6 +107,20 @@ export async function PUT(
       );
     }
 
+    // Validate soldCount if provided
+    if (
+      updateData.soldCount !== undefined &&
+      (typeof updateData.soldCount !== "number" || updateData.soldCount < 0)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sold count must be a non-negative number",
+        },
+        { status: 400 }
+      );
+    }
+
     // Update product data using data store with admin info for activity logging
     const updatedProduct = dataStore.updateProduct(
       productId,
@@ -191,19 +205,28 @@ export async function DELETE(
       );
     }
 
-    // Check if product has pending orders (in a real app)
-    // For now, we'll allow deletion but log it
+    try {
+      // Soft delete product using data store with admin info for activity logging
+      const deleted = dataStore.deleteProduct(productId, admin.id, admin.name);
 
-    // Delete product using data store with admin info for activity logging
-    const deleted = dataStore.deleteProduct(productId, admin.id, admin.name);
-
-    if (!deleted) {
+      if (!deleted) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Failed to delete product",
+          },
+          { status: 500 }
+        );
+      }
+    } catch (error) {
+      // Handle business logic errors (e.g., pending orders)
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to delete product",
+          error:
+            error instanceof Error ? error.message : "Cannot delete product",
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
@@ -219,7 +242,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Product deleted successfully",
+      message: "Sản phẩm đã được xóa thành công",
     });
   } catch (error) {
     console.error("Delete product error:", error);
