@@ -53,11 +53,13 @@ export async function requireAdmin(request: NextRequest) {
       );
     }
 
-    // In a real app, you would fetch user data from database
-    // For now, we'll check if the email matches our mock admin
-    const isAdminUser = MOCK_ADMINS.some(
-      (admin) => admin.email === session.user?.email && admin.isActive
-    );
+    // Prefer role-based check from session
+    const role = (session.user as any).role;
+    const isAdminUser =
+      role === "admin" ||
+      MOCK_ADMINS.some(
+        (admin) => admin.email === session.user?.email && admin.isActive
+      );
 
     if (!isAdminUser) {
       return NextResponse.json(
@@ -91,22 +93,25 @@ export async function requireAdminPermission(
       );
     }
 
-    const admin = MOCK_ADMINS.find(
-      (admin) => admin.email === session.user?.email && admin.isActive
-    );
-
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Admin access required" },
-        { status: 403 }
+    // Prefer role-based check
+    const role = (session.user as any).role;
+    if (role !== "admin") {
+      // Fallback to mock admin list for backward compatibility
+      const admin = MOCK_ADMINS.find(
+        (admin) => admin.email === session.user?.email && admin.isActive
       );
-    }
-
-    if (!hasAdminPermission(admin, permission)) {
-      return NextResponse.json(
-        { success: false, error: `Permission '${permission}' required` },
-        { status: 403 }
-      );
+      if (!admin) {
+        return NextResponse.json(
+          { success: false, error: "Admin access required" },
+          { status: 403 }
+        );
+      }
+      if (!hasAdminPermission(admin, permission)) {
+        return NextResponse.json(
+          { success: false, error: `Permission '${permission}' required` },
+          { status: 403 }
+        );
+      }
     }
 
     return null; // Allow request to continue

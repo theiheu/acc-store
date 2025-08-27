@@ -1,37 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ACC Store
 
-## Getting Started
+A Next.js app (App Router) for selling accounts. This repo uses a central server-only data store with SSE for realtime updates and a set of APIs for the UI.
 
-First, run the development server:
+## Quick start
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- npm ci
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Configure environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Copy .env.example to .env.local and fill values
+  - NEXTAUTH_URL, NEXTAUTH_SECRET
+  - ADMIN_EMAILS=you@example.com,admin2@example.com
+  - Optional: GOOGLE*\* / FACEBOOK*\* for OAuth
+  - Optional: UPSTASH\_\* for distributed rate limiting
 
-## Learn More
+3. Run
 
-To learn more about Next.js, take a look at the following resources:
+- npm run dev
+- Open http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- dev: start dev server
+- build: build for production
+- start: run production build
+- lint: lint code
+- lint:strict: lint (enforced in CI via next.config.ts)
+- typecheck: TypeScript check without emitting
+- cleanup:\*: utilities for category/code cleanup
 
-## Deploy on Vercel
+## What’s improved recently
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Middleware simplified: only path normalization; heavy product resolution moved to route-level logic (app/products/[category]/[slug]/page.tsx)
+- Rate limiting: added route-level guard using Upstash Redis if configured, else in-memory dev limiter
+  - Applied to: /api/products, /api/products/[id], /api/products/resolve, /api/categories, several admin and user endpoints
+- RBAC: role injected into JWT/session via ADMIN_EMAILS; admin checks prefer role from session
+- Admin analytics charts dynamically imported to reduce bundle/SSR cost
+- next.config.ts now enforces lint/TS errors in CI but relaxed locally
+- .env.example added
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# acc-store
+## Admin access
+
+- Set ADMIN_EMAILS in .env.local to grant admin role based on email
+- After login, the session carries user.role (admin/user) for server checks
+
+## Notes on data and persistence
+
+- Current data uses in-memory store with JSON persistence under .data (dev-friendly only). For production durability, migrate to a DB (e.g., SQLite/Prisma).
+
+## Next steps (recommended)
+
+- Refactor DataSyncProvider to stop importing server data store on the client; use API + SSE only
+- Convert app/products/page.tsx to server-first rendering and split client islands for interactivity
+- Add tests (Vitest/RTL, Playwright) and CI workflow (lint/typecheck/test/build)
+
+See docs/ for domain-specific details.

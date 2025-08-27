@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { AdminProfile, AdminPermissions } from "@/src/core/admin";
-import { isEmailAdmin } from "@/src/core/admin-auth";
 
 interface AdminAuthContextType {
   isAdmin: boolean;
@@ -41,8 +40,8 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
       return;
     }
 
-    // Check if user is admin
-    const isAdminUser = isEmailAdmin(session.user.email);
+    // Prefer role from session (populated in auth.ts)
+    const isAdminUser = (session.user as any)?.role === "admin";
 
     if (isAdminUser) {
       // In a real app, fetch admin profile from API

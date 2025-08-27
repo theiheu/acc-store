@@ -1,3 +1,5 @@
+import "server-only";
+
 // Shared data store for both admin and public pages
 // This replaces mock data with a centralized, synchronized data layer
 

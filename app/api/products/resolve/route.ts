@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dataStore } from "@/src/core/data-store";
 import { slugify } from "@/src/utils/slug";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 // GET /api/products/resolve
 // Query params:
 // - id: product id -> returns { id, category, slug }
 // - OR category + slug -> returns { id, category, slug }
 export async function GET(request: NextRequest) {
+  // Public rate limit
+  const limited = await guardRateLimit(request as any, "public");
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

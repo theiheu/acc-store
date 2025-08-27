@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
+import { guardRateLimit } from "@/src/core/rate-limit";
 import {
   STATUS,
   TOPUP_MIN_AMOUNT,

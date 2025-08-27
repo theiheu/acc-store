@@ -10,7 +10,7 @@ import {
   ReactNode,
   useRef,
 } from "react";
-import { dataStore, DataStoreEvent } from "@/src/core/data-store";
+// removed server-only dataStore import
 import {
   AdminUser,
   AdminProduct,
@@ -138,8 +138,6 @@ export function DataSyncProvider({
 
   // Debounced refreshers to minimize duplicate fetches
   const refreshPublicProductsNow = useCallback(async () => {
-    // Immediate fallback from dataStore for responsiveness
-    setPublicProducts(dataStore.getPublicProducts());
     const fetched = await fetchPublicProducts();
     if (Array.isArray(fetched) && mountedRef.current)
       setPublicProducts(fetched);
@@ -171,27 +169,29 @@ export function DataSyncProvider({
   ).current;
 
   const onAnyProductChange = useCallback(() => {
-    setProducts(dataStore.getProducts());
+    // When product changes are broadcast, refresh public products
     refreshPublicProductsDebounced();
     setLastUpdate(new Date());
   }, [refreshPublicProductsDebounced]);
 
-  // Force load data immediately on mount
+  // Initial fetch (server APIs)
   useEffect(() => {
-    dataStore.ensureProductsLoaded();
-    const products = dataStore.getPublicProducts();
-    const categories = dataStore.getCategories();
-
-    if (products.length > 0) {
-      setPublicProducts(products);
-      setIsInitialLoading(false);
-    }
-
-    setCategories(categories);
-    console.log(
-      "DataSyncProvider: Initial categories loaded:",
-      categories.length
-    );
+    (async () => {
+      try {
+        // Categories
+        try {
+          const res = await fetch("/api/categories", { cache: "no-store" });
+          const json = await res.json();
+          if (json?.success && Array.isArray(json.data))
+            setCategories(json.data);
+        } catch {}
+        // Products
+        const fetched = await fetchPublicProducts();
+        if (Array.isArray(fetched)) setPublicProducts(fetched);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    })();
   }, []);
 
   // Set up real-time updates
@@ -250,7 +250,6 @@ export function DataSyncProvider({
         });
       }
 
-      setTransactions(dataStore.getTransactions());
       setLastUpdate(new Date());
     },
     onProductUpdated: () => {
@@ -260,12 +259,17 @@ export function DataSyncProvider({
       onAnyProductChange();
     },
     onTransactionCreated: (data) => {
-      setTransactions(dataStore.getTransactions());
-      setUsers(dataStore.getUsers()); // Update users in case balance changed
-      if (currentUser && currentUser.id === data.transaction.userId) {
-        // Refresh current user data to get updated balance
-        const updatedUser = dataStore.getPublicUser(currentUserEmail!);
-        setCurrentUser(updatedUser);
+      const tx = data.transaction;
+      setTransactions((prev) => [tx, ...prev]);
+      if (currentUser && currentUser.id === tx.userId) {
+        setCurrentUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                balance: (prev.balance || 0) - Math.abs(tx.amount || 0),
+              }
+            : prev
+        );
       }
       setLastUpdate(new Date());
     },
@@ -284,13 +288,6 @@ export function DataSyncProvider({
     onTopupRequestProcessed: (data) => {
       const req = data.request;
       setTopupRequests((prev) => prev.map((r) => (r.id === req.id ? req : r)));
-      setUsers(dataStore.getUsers()); // Update users in case balance changed
-      setTransactions(dataStore.getTransactions()); // Update transactions
-      if (currentUser && currentUser.id === data.request.userId) {
-        // Refresh current user data to get updated balance
-        const updatedUser = dataStore.getPublicUser(currentUserEmail!);
-        setCurrentUser(updatedUser);
-      }
       setLastUpdate(new Date());
     },
   });
@@ -302,115 +299,69 @@ export function DataSyncProvider({
     const ac = new AbortController();
     refreshAbortRef.current = ac;
 
-    // Load products first
-    setProducts(dataStore.getProducts());
-
-    // Set immediate fallback from dataStore first
-    const immediateProducts = dataStore.getPublicProducts();
-    setPublicProducts(immediateProducts);
-
-    // Then fetch public products from API endpoint (with abort)
+    // Fetch public products
     try {
       const response = await fetch("/api/products", { signal: ac.signal });
       const result = await response.json();
-      if (!ac.signal.aborted) {
-        if (result.success) {
-          setPublicProducts(result.data);
-        } else {
-          setPublicProducts(dataStore.getPublicProducts());
-        }
+      if (!ac.signal.aborted && result?.success && Array.isArray(result.data)) {
+        setPublicProducts(result.data);
       }
-    } catch (error) {
-      if (!ac.signal.aborted) {
-        setPublicProducts(dataStore.getPublicProducts());
+    } catch {}
+
+    // Fetch categories
+    try {
+      const res = await fetch("/api/categories", { signal: ac.signal });
+      const json = await res.json();
+      if (!ac.signal.aborted && json?.success && Array.isArray(json.data)) {
+        setCategories(json.data);
       }
-    }
+    } catch {}
 
-    // Users
-    setUsers(dataStore.getUsers());
-
+    // Fetch current user (if email provided)
     if (currentUserEmail) {
-      let user = dataStore.getPublicUser(currentUserEmail);
+      try {
+        const userRes = await fetch(
+          `/api/users/${encodeURIComponent(currentUserEmail)}`,
+          { signal: ac.signal }
+        );
+        if (userRes.ok) {
+          const body = await userRes.json();
+          if (!ac.signal.aborted && body?.success) setCurrentUser(body.user);
+        }
+      } catch {}
 
-      if (!user) {
-        try {
-          const response = await fetch("/api/auth/session", {
-            signal: ac.signal,
-          });
-          const session = await response.json();
-          if (ac.signal.aborted) return;
-
-          if (session?.user) {
-            try {
-              const userResponse = await fetch(
-                `/api/users/${session.user.email}`,
-                {
-                  signal: ac.signal,
-                }
-              );
-              if (userResponse.ok) {
-                const userData = await userResponse.json();
-                if (!ac.signal.aborted && userData.success && userData.user) {
-                  dataStore.createUser({
-                    ...userData.user,
-                    registrationSource: "reload-recovery",
-                  });
-                  user = dataStore.getPublicUser(currentUserEmail);
-                }
-              }
-            } catch {}
-
-            if (!user && !ac.signal.aborted) {
-              dataStore.createUser({
-                email: session.user.email,
-                name: session.user.name || session.user.email.split("@")[0],
-                role: "user",
-                status: "active",
-                balance: 0,
-                totalOrders: 0,
-                totalSpent: 0,
-                registrationSource: "reload-recovery",
-              });
-              user = dataStore.getPublicUser(currentUserEmail);
-            }
+      // Fetch user transactions
+      try {
+        const txRes = await fetch("/api/user/transactions", {
+          signal: ac.signal,
+        });
+        if (txRes.ok) {
+          const body = await txRes.json();
+          if (!ac.signal.aborted && body?.success && Array.isArray(body.data)) {
+            setTransactions(body.data);
           }
-        } catch {}
-      }
+        }
+      } catch {}
 
-      if (!ac.signal.aborted) setCurrentUser(user);
+      // Fetch user topup requests
+      try {
+        const trRes = await fetch("/api/user/topup-request", {
+          signal: ac.signal,
+        });
+        if (trRes.ok) {
+          const body = await trRes.json();
+          if (!ac.signal.aborted && body?.success && Array.isArray(body.data)) {
+            setTopupRequests(body.data);
+          }
+        }
+      } catch {}
     }
 
     if (!ac.signal.aborted) {
-      setTransactions(dataStore.getTransactions());
       setLastUpdate(new Date());
       setIsInitialLoading(false);
     }
   }, [currentUserEmail]);
-
-  // Initialize data
-  useEffect(() => {
-    // Ensure dataStore has products loaded
-    dataStore.ensureProductsLoaded();
-
-    // Check if dataStore has products immediately
-    const immediateProducts = dataStore.getPublicProducts();
-
-    if (immediateProducts.length > 0) {
-      setPublicProducts(immediateProducts);
-      setIsInitialLoading(false);
-    }
-
-    const initializeData = async () => {
-      try {
-        await refreshData();
-      } catch (error) {
-        console.error("DataSyncProvider: Failed to load initial data", error);
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
-    initializeData();
-  }, [refreshData]);
 
   // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
@@ -435,105 +386,80 @@ export function DataSyncProvider({
       };
       setCurrentUser(publicUser);
     } else {
-      const dataStoreUser = dataStore.getPublicUser(currentUserEmail);
-      setCurrentUser(dataStoreUser);
+      // Fallback: keep currentUser as is; it will be populated by refreshData or SSE
     }
   }, [currentUserEmail, users]);
 
-  // Subscribe to real-time updates
-  useEffect(() => {
-    const unsubscribe = dataStore.subscribe((event: DataStoreEvent) => {
-      setLastUpdate(new Date());
+  // SSE subscription handled via useRealtimeUpdates above; no local datastore subscription
 
-      switch (event.type) {
-        case "USER_CREATED":
-        case "USER_UPDATED":
-          setUsers(dataStore.getUsers());
-          if (
-            currentUserEmail &&
-            (event as any).payload.email === currentUserEmail
-          ) {
-            setCurrentUser(dataStore.getPublicUser(currentUserEmail));
-          }
-          break;
+  // Compute lightweight stats on client as a fallback (admin uses API for full stats)
+  const stats = useMemo(() => {
+    const totalUsers = users.length;
+    const activeUsers = users.filter(
+      (u) => (u as any).status !== "inactive"
+    ).length;
+    const totalProducts = publicProducts.length;
+    const activeProducts = publicProducts.length; // publicProducts are already active
+    const totalOrders = 0;
+    const pendingOrders = 0;
+    const totalRevenue = 0;
+    const monthlyRevenue = 0;
+    const averageOrderValue = 0;
+    return {
+      totalUsers,
+      activeUsers,
+      totalProducts,
+      activeProducts,
+      totalOrders,
+      pendingOrders,
+      totalRevenue,
+      monthlyRevenue,
+      averageOrderValue,
+    };
+  }, [users, publicProducts]);
 
-        case "USER_BALANCE_CHANGED":
-          setUsers(dataStore.getUsers());
-          if (currentUser && currentUser.id === (event as any).payload.userId) {
-            setCurrentUser((prev) =>
-              prev
-                ? { ...prev, balance: (event as any).payload.newBalance }
-                : null
-            );
-          }
-          break;
-
-        case "PRODUCT_CREATED":
-        case "PRODUCT_UPDATED":
-          onAnyProductChange();
-          break;
-
-        case "PRODUCT_DELETED":
-          onAnyProductChange();
-          break;
-
-        case "TRANSACTION_CREATED":
-          setTransactions(dataStore.getTransactions());
-          if (currentUser && currentUser.id === (event as any).payload.userId) {
-            const updatedUser = dataStore.getPublicUser(currentUserEmail!);
-            setCurrentUser(updatedUser);
-          }
-          break;
-
-        case "CATEGORY_CREATED":
-        case "CATEGORY_UPDATED":
-        case "CATEGORY_DELETED":
-          refreshCategoriesDebounced();
-          break;
-      }
-    });
-
-    return unsubscribe;
-  }, [
-    currentUserEmail,
-    currentUser,
-    onAnyProductChange,
-    refreshCategoriesDebounced,
-  ]);
-
-  const stats = dataStore.getStats();
-
+  // Topup helpers read from local state
   const getTopupRequests = useCallback((): TopupRequest[] => {
-    return dataStore.getTopupRequests();
-  }, []);
+    return topupRequests;
+  }, [topupRequests]);
 
   const getPendingTopupRequests = useCallback((): TopupRequest[] => {
-    return dataStore.getPendingTopupRequests();
-  }, []);
+    return topupRequests.filter((r) => r.status === "pending");
+  }, [topupRequests]);
 
-  const getUserTopupRequests = useCallback((userId: string): TopupRequest[] => {
-    return dataStore.getUserTopupRequests(userId);
-  }, []);
+  const getUserTopupRequests = useCallback(
+    (userId: string): TopupRequest[] => {
+      return topupRequests.filter((r) => r.userId === userId);
+    },
+    [topupRequests]
+  );
 
-  const getProductById = useCallback((id: string): AdminProduct | null => {
-    return dataStore.getProduct(id);
-  }, []);
+  // Admin product lookup (fallback to null if not available on client)
+  const getProductById = useCallback(
+    (id: string): AdminProduct | null => {
+      return (products.find((p) => p.id === id) as AdminProduct) || null;
+    },
+    [products]
+  );
 
   const getUserTransactions = useCallback(
     (userId: string): UserTransaction[] => {
-      return dataStore.getUserTransactions(userId);
+      return transactions.filter((t) => t.userId === userId);
     },
-    []
+    [transactions]
   );
 
-  const getUserById = useCallback((id: string): AdminUser | null => {
-    return dataStore.getUser(id);
-  }, []);
+  const getUserById = useCallback(
+    (id: string): AdminUser | null => {
+      return users.find((u) => u.id === id) || null;
+    },
+    [users]
+  );
 
   const getUserByEmail = useCallback(
     (email: string): AdminUser | null => {
       const fromState = users.find((u) => u.email === email) || null;
-      return fromState || dataStore.getUserByEmail(email);
+      return fromState;
     },
     [users]
   );
@@ -651,22 +577,36 @@ export function useUserBalance(userEmail?: string) {
   return balance;
 }
 
-// Hook for admin dashboard stats with real-time updates
+// Hook for admin dashboard stats with real-time updates (fallback)
 export function useDashboardStats() {
-  const { stats } = useDataSync();
+  const { stats, publicProducts, users } = useDataSync();
 
-  const recentUsers = dataStore.getRecentUsers(10);
-  const products = dataStore.getProducts();
-  const topSellingProducts = [...products]
-    .sort((a, b) => (b.sold || 0) - (a.sold || 0))
+  // Recent users (fallback): last 10 by createdAt
+  const recentUsers = [...users]
+    .sort((a, b) => {
+      const ta = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
+      const tb = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
+      return tb - ta;
+    })
+    .slice(0, 10);
+
+  // Top-selling fallback from public products by soldCount
+  const topSellingProducts = [...publicProducts]
+    .sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0))
     .slice(0, 3)
-    .map((product) => ({
-      productId: product.id,
-      productTitle: product.title,
-      salesCount: product.sold || 0,
-      revenue: (product.sold || 0) * ((product as any).price ?? 0),
-    }));
-  const recentActivity = dataStore.getRecentActivity(10);
+    .map((p) => {
+      const unitPrice = p.price ?? p.options?.[0]?.price ?? 0;
+      const sold = p.soldCount || 0;
+      return {
+        productId: p.id,
+        productTitle: p.title,
+        salesCount: sold,
+        revenue: sold * unitPrice,
+      };
+    });
+
+  // No local activity log on client; provide empty fallback
+  const recentActivity: any[] = [];
 
   return {
     ...stats,

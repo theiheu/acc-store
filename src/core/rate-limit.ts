@@ -164,3 +164,37 @@ export function createRateLimitResponse(
     }
   );
 }
+
+// Route-level guard helper
+export async function guardRateLimit(
+  request: Request,
+  kind: "admin" | "public" | "auth" | "payment"
+): Promise<Response | null> {
+  try {
+    const clientIP = getClientIP(request);
+    const limiter =
+      kind === "admin"
+        ? adminRateLimit
+        : kind === "auth"
+        ? authRateLimit
+        : kind === "payment"
+        ? paymentRateLimit
+        : publicRateLimit;
+
+    const identifier = `${kind}_${clientIP}`;
+    // Upstash Ratelimit returns an object with success/limit/remaining/reset
+    // Our dev limiter mimics that shape
+    // @ts-expect-error – unify shapes between dev/prod
+    const result = await limiter.limit(identifier);
+    if (!result.success) {
+      return createRateLimitResponse(
+        result.limit,
+        result.remaining,
+        result.reset
+      );
+    }
+  } catch (e) {
+    console.error("Rate limit guard error:", e);
+  }
+  return null;
+}

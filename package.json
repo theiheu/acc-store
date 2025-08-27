@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:strict": "next lint",
+    "typecheck": "tsc --noEmit",
     "cleanup:categories": "node scripts/run-cleanup.js",
     "cleanup:data-only": "node scripts/cleanup-categories.js",
     "cleanup:code-only": "node scripts/cleanup-code-references.js"

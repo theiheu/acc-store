@@ -5,15 +5,32 @@ import AdminLayout from "@/src/components/layout/AdminLayout";
 import { withAdminAuth } from "@/src/components/providers/AdminAuthProvider";
 import { useToastContext } from "@/src/components/providers/ToastProvider";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
-import {
-  LineChart,
-  BarChart,
-  PieChart,
-  ChartData,
-  WaterfallChart,
-  ProfitMarginChart,
-  ProfitDistributionChart,
-} from "@/src/components/admin/statistics";
+import dynamic from "next/dynamic";
+// Dynamically import heavy chart components (no SSR) to reduce bundle/SSR cost
+const LineChart = dynamic(
+  () => import("@/src/components/admin/statistics/LineChart"),
+  { ssr: false }
+);
+const BarChart = dynamic(
+  () => import("@/src/components/admin/statistics/BarChart"),
+  { ssr: false }
+);
+const PieChart = dynamic(
+  () => import("@/src/components/admin/statistics/PieChart"),
+  { ssr: false }
+);
+const WaterfallChart = dynamic(
+  () => import("@/src/components/admin/statistics/WaterfallChart"),
+  { ssr: false }
+);
+const ProfitMarginChart = dynamic(
+  () => import("@/src/components/admin/statistics/ProfitMarginChart"),
+  { ssr: false }
+);
+const ProfitDistributionChart = dynamic(
+  () => import("@/src/components/admin/statistics/ProfitDistributionChart"),
+  { ssr: false }
+);
 import {
   ProfitMetricCard,
   ProfitAlerts,

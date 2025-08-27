@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { toProductPath, slugify } from "@/src/utils/slug";
 import Link from "next/link";
-import { notFound, useParams } from "next/navigation";
+import { notFound } from "next/navigation";
 import { type Product, type ProductOption } from "@/src/core/products";
 import { useToastContext } from "@/src/components/providers/ToastProvider";
 
@@ -16,6 +16,10 @@ import ConfirmPurchaseModal from "@/src/components/ui/ConfirmPurchaseModal";
 import PurchaseSuccessModal from "@/src/components/ui/PurchaseSuccessModal";
 import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+
+interface Props {
+  initialId: string;
+}
 
 // Custom hook for product data fetching with real-time updates
 function useProductData(id: string | undefined) {
@@ -34,9 +38,7 @@ function useProductData(id: string | undefined) {
       setIsLoading(true);
       setFetchError(false);
 
-      const response = await fetch(
-        `/api/products/resolve?id=${encodeURIComponent(id)}`
-      );
+      const response = await fetch(`/api/products/resolve?id=${encodeURIComponent(id)}`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -49,9 +51,7 @@ function useProductData(id: string | undefined) {
       }
 
       // Now fetch the actual product data
-      const productResponse = await fetch(
-        `/api/products/${resolveData.data.id}`
-      );
+      const productResponse = await fetch(`/api/products/${resolveData.data.id}`);
 
       if (!productResponse.ok) {
         throw new Error(`HTTP ${productResponse.status}`);
@@ -79,7 +79,6 @@ function useProductData(id: string | undefined) {
       (data: any) => {
         // Check if this is the product we're currently viewing
         if (product && data.id === product.id) {
-          console.log("Product updated via SSE, refreshing data...");
           // Convert admin product data to public product format
           const updatedProduct: Product = {
             id: data.id,
@@ -110,11 +109,8 @@ function useProductData(id: string | undefined) {
   return { product, isLoading, fetchError, refetch: fetchProduct };
 }
 
-export default function ProductDetailPage() {
-  const params = useParams();
-  const id = Array.isArray(params?.id)
-    ? params?.id[0]
-    : (params?.id as string | undefined);
+export default function ProductDetailClient({ initialId }: Props) {
+  const id = initialId;
 
   // Always call ALL hooks at the top in the same order
   const { currentUser } = useDataSync();
@@ -212,7 +208,7 @@ export default function ProductDetailPage() {
 
   // Memoized breadcrumbs (must be before early returns)
   const crumbs = useMemo(() => {
-    if (!product) return [];
+    if (!product) return [] as Array<{ href: string; label: string }>;
 
     const slug = slugify(product.title);
     return [
@@ -298,10 +294,7 @@ export default function ProductDetailPage() {
       />
       <div className="mx-auto max-w-6xl xl:max-w-7xl px-4 lg:px-6 py-8 space-y-4">
         {/* Breadcrumbs */}
-        <nav
-          aria-label="Breadcrumb"
-          className="text-sm text-gray-600 dark:text-gray-400"
-        >
+        <nav aria-label="Breadcrumb" className="text-sm text-gray-600 dark:text-gray-400">
           {crumbs.map((c, i) => (
             <span key={c.href}>
               <Link href={c.href} className="hover:underline">
@@ -313,11 +306,7 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-          <ProductImage
-            imageUrl={product.imageUrl}
-            imageEmoji={product.imageEmoji}
-            title={product.title}
-          />
+          <ProductImage imageUrl={product.imageUrl} imageEmoji={product.imageEmoji} title={product.title} />
 
           <ProductPurchaseForm
             product={product}
@@ -349,7 +338,7 @@ export default function ProductDetailPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                productId: product.id,
+                productId: product!.id,
                 quantity: qty,
                 selectedOptionId: selectedOption?.id,
                 price: currentPrice,
@@ -366,10 +355,10 @@ export default function ProductDetailPage() {
             // Prepare order data for success modal
             const orderInfo = {
               orderId: data.data?.orderId || "N/A",
-              productTitle: product.title,
+              productTitle: product!.title,
               quantity: qty,
               totalAmount: currentPrice * qty,
-              currency: product.currency,
+              currency: product!.currency,
               hasCredentials: !!data.data?.credentials,
             };
 
@@ -384,10 +373,10 @@ export default function ProductDetailPage() {
             hideLoading();
           }
         }}
-        productTitle={product.title}
+        productTitle={product!.title}
         quantity={qty}
         unitPrice={currentPrice}
-        currency={product.currency}
+        currency={product!.currency}
         balance={currentUser?.balance}
       />
 
@@ -405,3 +394,4 @@ export default function ProductDetailPage() {
     </div>
   );
 }
+

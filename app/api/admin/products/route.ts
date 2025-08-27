@@ -17,9 +17,14 @@ import {
   createValidationErrorResponse,
 } from "@/src/core/validation";
 import { z } from "zod";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 // GET /api/admin/products - List products with filtering and pagination
 export async function GET(request: NextRequest) {
+  // Rate limit for admin endpoints
+  const limited = await guardRateLimit(request as any, "admin");
+  if (limited) return limited;
+
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");
   if (authError) return authError;
@@ -140,6 +145,10 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/products - Create new product
 export async function POST(request: NextRequest) {
+  // Rate limit for admin endpoints
+  const limited = await guardRateLimit(request as any, "admin");
+  if (limited) return limited;
+
   // Check admin permission
   const authError = await requireAdminPermission(request, "canManageProducts");
   if (authError) return authError;

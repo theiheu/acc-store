@@ -547,26 +547,6 @@ Nội dung: ${transferContent}`;
                     : "---"}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Nội dung chuyển khoản
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                    {transferContent}
-                  </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(transferContent);
-                      show("Đã copy nội dung chuyển khoản!");
-                    }}
-                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors cursor-pointer"
-                    title="Copy nội dung chuyển khoản"
-                  >
-                    📋
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 

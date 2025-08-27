@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
+const isCI = process.env.CI === "true" || process.env.CI === "1";
+
 const nextConfig: NextConfig = {
-  // Tạm thời bỏ qua lỗi ESLint/TypeScript khi build để không chặn triển khai
-  // (Có thể bật lại khi mã đã ổn định)
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
+  // Gate lint/type checking by environment: enforce in CI, relax locally
+  eslint: { ignoreDuringBuilds: !isCI },
+  typescript: { ignoreBuildErrors: !isCI },
   images: {
     remotePatterns: [
       {

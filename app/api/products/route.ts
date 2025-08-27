@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dataStore } from "@/src/core/data-store";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 // GET /api/products - Get public products for customer-facing pages
 export async function GET(request: NextRequest) {
+  // Public rate limit guard
+  const limited = await guardRateLimit(request as any, "public");
+  if (limited) return limited;
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -13,21 +18,9 @@ export async function GET(request: NextRequest) {
     // Get public products from data store
     let products = dataStore.getPublicProducts();
 
-    console.log("API /products: Total products:", products.length);
-    console.log("API /products: Category filter:", category);
-    console.log(
-      "API /products: Products by category:",
-      products.map((p) => ({ id: p.id, title: p.title, category: p.category }))
-    );
-
     // Apply filters
     if (category && category !== "all") {
       products = products.filter((product) => product.category === category);
-      console.log(
-        "API /products: After category filter:",
-        products.length,
-        "products"
-      );
     }
 
     if (search) {
@@ -43,14 +36,11 @@ export async function GET(request: NextRequest) {
 
     // Sort by creation date (newest first) and then by sold count
     products.sort((a, b) => {
-      // First sort by creation date (newest first)
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       if (dateB !== dateA) {
         return dateB - dateA; // Newest first
       }
-
-      // Then by sold count (highest first)
       return (b.soldCount || 0) - (a.soldCount || 0);
     });
 

@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { dataStore } from "@/src/core/data-store";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 // GET /api/user/transactions - returns current user's recent transactions
 export async function GET(request: NextRequest) {
+  // Light rate limiting for authenticated user endpoints
+  const limited = await guardRateLimit(request as any, "public");
+  if (limited) return limited;
+
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -32,4 +37,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

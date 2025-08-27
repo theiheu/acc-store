@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dataStore } from "@/src/core/data-store";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 // GET /api/products/[id] - Get single public product
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // Public rate limit
+  const limited = await guardRateLimit(request as any, "public");
+  if (limited) return limited;
+
   try {
     const { id } = await context.params;
 

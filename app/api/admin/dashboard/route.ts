@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/src/core/admin-auth";
 import { DashboardStats } from "@/src/core/admin";
 import { dataStore } from "@/src/core/data-store";
+import { guardRateLimit } from "@/src/core/rate-limit";
 
 export async function GET(request: NextRequest) {
+  // Rate limit admin endpoint
+  const limited = await guardRateLimit(request as any, "admin");
+  if (limited) return limited;
+
   // Check admin permission
   const authError = await requireAdminPermission(request, "canViewAnalytics");
   if (authError) return authError;
