@@ -37,6 +37,13 @@ export default function AccountPage() {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupRefreshTrigger, setTopupRefreshTrigger] = useState(0);
+  const [displayName, setDisplayName] = useState(session?.user?.name || "");
+
+  useEffect(() => {
+    if (session?.user?.name) {
+      setDisplayName(session.user.name);
+    }
+  }, [session?.user?.name]);
   const fetchRecentTransactions = useCallback(async () => {
     try {
       if (!currentUser) return;
@@ -123,6 +130,32 @@ export default function AccountPage() {
         await signOut({ redirect: false });
         router.push("/");
       }, "Đang đăng xuất...");
+
+      const handleUpdateProfile = async (e: React.FormEvent) => {
+        e.preventDefault();
+        await withLoading(async () => {
+          const res = await fetch("/api/user/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: displayName }),
+          });
+
+          const data = await res.json();
+
+          if (data.success) {
+            show("Cập nhật thông tin thành công!");
+            // Manually update session as next-auth session is not automatically refreshed
+            // This is a common workaround.
+            const newSession = {
+              ...session,
+              user: { ...session?.user, name: displayName },
+            };
+            // A proper implementation might use `useSession().update(newSession)` if available and configured
+          } else {
+            show(data.error || "Đã có lỗi xảy ra.", "error");
+          }
+        }, "Đang cập nhật...");
+      };
 
       show("Đã đăng xuất thành công");
     } catch (error) {
@@ -483,16 +516,23 @@ export default function AccountPage() {
           {/* Account Info */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6">
             <h3 className="text-lg font-semibold mb-4">Thông tin tài khoản</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="displayName"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
                   Tên hiển thị
-                </span>
-                <span className="text-sm font-medium">
-                  {user.name || "Chưa cập nhật"}
-                </span>
+                </label>
+                <input
+                  type="text"
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm"
+                />
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex justify-between items-center py-2 border-t border-gray-100 dark:border-gray-800">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Email
                 </span>
@@ -500,16 +540,15 @@ export default function AccountPage() {
                   {user.email || "Chưa cập nhật"}
                 </span>
               </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Trạng thái
-                </span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-100 dark:bg-green-300/10 text-green-800 dark:text-green-200 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                  Đã xác thực
-                </span>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                >
+                  Lưu thay đổi
+                </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>

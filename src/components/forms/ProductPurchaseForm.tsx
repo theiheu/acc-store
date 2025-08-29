@@ -11,8 +11,8 @@ interface ProductPurchaseFormProps {
   fmt: Intl.NumberFormat;
   selectedOption: ProductOption | null;
   qty: number;
-  onPurchase: () => void;
-  onTopUp: () => void;
+  onAddToCart: () => void;
+  onBuyNow: () => void;
   onOptionChange: (option: ProductOption | null) => void;
   onQuantityChange: (qty: number) => void;
 }
@@ -23,8 +23,8 @@ export default function ProductPurchaseForm({
   fmt,
   selectedOption,
   qty,
-  onPurchase,
-  onTopUp,
+  onAddToCart,
+  onBuyNow,
   onOptionChange,
   onQuantityChange,
 }: ProductPurchaseFormProps) {
@@ -126,27 +126,20 @@ export default function ProductPurchaseForm({
       {/* Action Buttons */}
       <div className="flex gap-2 pt-2">
         <button
-          onClick={onPurchase}
+          onClick={onBuyNow}
           disabled={!stockInfo.isInStock}
           className="flex-1 inline-flex items-center justify-center rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           Mua ngay
         </button>
-        <Link
-          href={{
-            pathname: "/deposit",
-            query: {
-              utm_source: "product-detail",
-              utm_medium: "cta",
-              utm_campaign: product.id,
-              utm_content: "detail-outline",
-            },
-          }}
-          onClick={onTopUp}
-          className="rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
+        <button
+          onClick={onAddToCart}
+          disabled={!stockInfo.isInStock}
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 text-white px-4 py-2.5 text-sm font-medium hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
         >
-          Nạp thêm
-        </Link>
+          <span className="text-lg">🛒</span>
+          <span>Thêm vào giỏ</span>
+        </button>
       </div>
 
       {/* Warranty Info */}

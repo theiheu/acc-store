@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useCart } from "@/src/components/providers/CartProvider";
 import AuthButton from "@/src/components/common/AuthButton";
 import { AccStoreLogo } from "@/src/components/branding";
 
@@ -48,6 +49,11 @@ function NavLink({
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { state: cartState } = useCart();
+  const totalCartItems = cartState.items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   const isHome = pathname === "/";
   const isProducts = pathname?.startsWith("/products");
@@ -78,14 +84,6 @@ export default function Navbar() {
         {/* Right side actions */}
         <nav className="flex items-center gap-2">
           {/* Desktop-only nav links that will be moved to dropdown on mobile */}
-
-          <NavLink
-            href="/deposit"
-            active={pathname === "/deposit"}
-            className="hidden md:flex"
-          >
-            Nạp tiền
-          </NavLink>
 
           {/* Auth button is always visible */}
           <div className="ml-2">

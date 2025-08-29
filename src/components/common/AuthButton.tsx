@@ -15,6 +15,7 @@ import {
 import { useAccountRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { formatCurrency } from "@/src/core/admin";
+import { useCart } from "@/src/components/providers/CartProvider";
 
 export default function AuthButton() {
   const [open, setOpen] = useState(false);
@@ -25,20 +26,16 @@ export default function AuthButton() {
   const { show } = useToastContext();
   const { withLoading } = useGlobalLoading();
   const currentUser = useCurrentUser();
-  const { getUserTransactions, lastUpdate } = useDataSync();
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const { lastUpdate } = useDataSync();
   const isMobile = useMediaQuery("(max-width: 767px)");
+  const { state: cartState } = useCart();
+  const totalCartItems = cartState.items.reduce(
+    (total, item) => total + item.quantity,
+    0
+  );
 
   // Set up real-time updates for this user - always call hooks
-  const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
-
-  // Update transactions when data changes
-  useEffect(() => {
-    if (currentUser) {
-      const userTransactions = getUserTransactions(currentUser.id);
-      setTransactions(userTransactions.slice(0, 5)); // Show last 5 transactions
-    }
-  }, [currentUser, getUserTransactions, lastUpdate]);
+  useAccountRealtimeUpdates(currentUser?.id);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -180,16 +177,6 @@ export default function AuthButton() {
                   <span className="text-base">🛍️</span>
                   Sản phẩm
                 </Link>
-                <Link
-                  href="/deposit"
-                  role="menuitem"
-                  tabIndex={0}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
-                >
-                  <span className="text-base">💰</span>
-                  Nạp tiền
-                </Link>
                 <div className="border-t border-gray-200 dark:border-gray-800 my-1" />
               </>
             )}
@@ -214,6 +201,35 @@ export default function AuthButton() {
             >
               <span className="text-base">📦</span>
               Đơn hàng của tôi
+            </Link>
+
+            <Link
+              href="/cart"
+              role="menuitem"
+              tabIndex={0}
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">🛒</span>
+                <span>Giỏ hàng</span>
+              </div>
+              {totalCartItems > 0 && (
+                <span className="h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                  {totalCartItems}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/deposit"
+              role="menuitem"
+              tabIndex={0}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
+            >
+              <span className="text-base">💰</span>
+              Nạp tiền
             </Link>
 
             <div className="border-t border-gray-200 dark:border-gray-800 my-1" />

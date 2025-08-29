@@ -6,6 +6,7 @@ import { GlobalLoadingProvider } from "@/src/components/providers/GlobalLoadingP
 import ToastProvider from "@/src/components/providers/ToastProvider";
 import GlobalLoadingOverlay from "@/src/components/ui/GlobalLoadingOverlay";
 import { DataSyncProvider } from "@/src/components/providers/DataSyncProvider";
+import { CartProvider } from "@/src/components/providers/CartProvider";
 import ErrorBoundary from "@/src/components/ui/ErrorBoundary";
 
 // Inner component to access session data
@@ -17,11 +18,13 @@ function ProvidersInner({ children }: { children: ReactNode }) {
     <ErrorBoundary>
       <GlobalLoadingProvider>
         <ToastProvider>
-          <DataSyncProvider currentUserEmail={currentUserEmail}>
-            {children}
-            {/* Global overlay rendered once at root */}
-            <GlobalLoadingOverlay />
-          </DataSyncProvider>
+          <CartProvider>
+            <DataSyncProvider currentUserEmail={currentUserEmail}>
+              {children}
+              {/* Global overlay rendered once at root */}
+              <GlobalLoadingOverlay />
+            </DataSyncProvider>
+          </CartProvider>
         </ToastProvider>
       </GlobalLoadingProvider>
     </ErrorBoundary>

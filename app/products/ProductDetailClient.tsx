@@ -3,17 +3,17 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { toProductPath, slugify } from "@/src/utils/slug";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { type Product, type ProductOption } from "@/src/core/products";
 import { useToastContext } from "@/src/components/providers/ToastProvider";
+import { useCart } from "@/src/components/providers/CartProvider";
 
 import ProductDetailSkeleton from "@/src/components/ui/ProductDetailSkeleton";
 import ProductInfoTabs from "@/src/components/product/ProductInfoTabs";
 import ProductImage from "@/src/components/product/ProductImage";
 import ProductPurchaseForm from "@/src/components/forms/ProductPurchaseForm";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
-import ConfirmPurchaseModal from "@/src/components/ui/ConfirmPurchaseModal";
-import PurchaseSuccessModal from "@/src/components/ui/PurchaseSuccessModal";
+
 import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 
@@ -38,7 +38,9 @@ function useProductData(id: string | undefined) {
       setIsLoading(true);
       setFetchError(false);
 
-      const response = await fetch(`/api/products/resolve?id=${encodeURIComponent(id)}`);
+      const response = await fetch(
+        `/api/products/resolve?id=${encodeURIComponent(id)}`
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -51,7 +53,9 @@ function useProductData(id: string | undefined) {
       }
 
       // Now fetch the actual product data
-      const productResponse = await fetch(`/api/products/${resolveData.data.id}`);
+      const productResponse = await fetch(
+        `/api/products/${resolveData.data.id}`
+      );
 
       if (!productResponse.ok) {
         throw new Error(`HTTP ${productResponse.status}`);
@@ -116,17 +120,9 @@ export default function ProductDetailClient({ initialId }: Props) {
   const { currentUser } = useDataSync();
   const { hideLoading, showLoading } = useGlobalLoading();
   const { product, isLoading, fetchError } = useProductData(id);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [orderData, setOrderData] = useState<{
-    orderId: string;
-    productTitle: string;
-    quantity: number;
-    totalAmount: number;
-    currency: string;
-    hasCredentials?: boolean;
-  } | null>(null);
+  const { dispatch } = useCart();
   const { show } = useToastContext();
+  const router = useRouter();
 
   // Simplified state for purchase form
   const [selectedOption, setSelectedOption] = useState<ProductOption | null>(
@@ -162,49 +158,37 @@ export default function ProductDetailClient({ initialId }: Props) {
     );
   }, [product]);
 
-  // Optimized purchase handler
-  const handlePurchaseClick = useCallback(() => {
+  const handleAddToCart = useCallback(() => {
     if (!product) return;
 
-    try {
-      // Check stock based on product structure
-      let availableStock = 0;
-      if (product.options && product.options.length > 0) {
-        if (!selectedOption) {
-          show("Vui lòng chọn loại sản phẩm");
-          return;
-        }
-        availableStock = selectedOption.stock || 0;
-      } else {
-        availableStock = product.stock || 0;
-      }
-
-      if (qty > availableStock) {
-        show(`Chỉ còn ${availableStock} sản phẩm trong kho`);
-        return;
-      }
-
-      if (!currentUser) {
-        show("Vui lòng đăng nhập để mua hàng");
-        return;
-      }
-
-      if ((currentUser.balance || 0) < currentPrice * qty) {
-        show("Số dư không đủ. Vui lòng nạp thêm tiền");
-        return;
-      }
-
-      setConfirmOpen(true);
-    } catch (error) {
-      console.error("Error in purchase handler:", error);
-      show("Có lỗi xảy ra. Vui lòng thử lại");
+    // Validate that an option is selected if the product has options
+    if (product.options && product.options.length > 0 && !selectedOption) {
+      show("Vui lòng chọn một loại sản phẩm.");
+      return;
     }
-  }, [product, selectedOption, qty, currentUser, currentPrice, show]);
 
-  const handleTopUp = useCallback(() => {
-    showLoading("Đang chuyển đến nạp tiền...");
-    show("Đã chuyển sang trang nạp tiền");
-  }, [showLoading, show]);
+    dispatch({
+      type: "ADD_ITEM",
+      item: { product, option: selectedOption, quantity: qty },
+    });
+    show(`Đã thêm "${product.title}" vào giỏ hàng!`);
+  }, [product, selectedOption, qty, dispatch, show]);
+
+  const handleBuyNow = useCallback(() => {
+    if (!product) return;
+
+    // Validate that an option is selected if the product has options
+    if (product.options && product.options.length > 0 && !selectedOption) {
+      show("Vui lòng chọn một loại sản phẩm.");
+      return;
+    }
+
+    dispatch({
+      type: "ADD_ITEM",
+      item: { product, option: selectedOption, quantity: qty },
+    });
+    router.push("/cart");
+  }, [product, selectedOption, qty, dispatch, router, show]);
 
   // Memoized breadcrumbs (must be before early returns)
   const crumbs = useMemo(() => {
@@ -294,7 +278,10 @@ export default function ProductDetailClient({ initialId }: Props) {
       />
       <div className="mx-auto max-w-6xl xl:max-w-7xl px-4 lg:px-6 py-8 space-y-4">
         {/* Breadcrumbs */}
-        <nav aria-label="Breadcrumb" className="text-sm text-gray-600 dark:text-gray-400">
+        <nav
+          aria-label="Breadcrumb"
+          className="text-sm text-gray-600 dark:text-gray-400"
+        >
           {crumbs.map((c, i) => (
             <span key={c.href}>
               <Link href={c.href} className="hover:underline">
@@ -306,7 +293,11 @@ export default function ProductDetailClient({ initialId }: Props) {
         </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-          <ProductImage imageUrl={product.imageUrl} imageEmoji={product.imageEmoji} title={product.title} />
+          <ProductImage
+            imageUrl={product.imageUrl}
+            imageEmoji={product.imageEmoji}
+            title={product.title}
+          />
 
           <ProductPurchaseForm
             product={product}
@@ -314,8 +305,8 @@ export default function ProductDetailClient({ initialId }: Props) {
             fmt={fmt}
             selectedOption={selectedOption}
             qty={qty}
-            onPurchase={handlePurchaseClick}
-            onTopUp={handleTopUp}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
             onOptionChange={setSelectedOption}
             onQuantityChange={setQty}
           />
@@ -326,72 +317,6 @@ export default function ProductDetailClient({ initialId }: Props) {
           <ProductInfoTabs product={product} />
         </div>
       </div>
-
-      {/* Confirm purchase modal */}
-      <ConfirmPurchaseModal
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={async () => {
-          try {
-            showLoading("Đang xử lý đơn hàng...");
-            const res = await fetch("/api/orders", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                productId: product!.id,
-                quantity: qty,
-                selectedOptionId: selectedOption?.id,
-                price: currentPrice,
-              }),
-            });
-            const data = await res.json();
-            if (!data.success) {
-              hideLoading();
-              show(data.error || "Không thể tạo đơn hàng");
-              return;
-            }
-            setConfirmOpen(false);
-
-            // Prepare order data for success modal
-            const orderInfo = {
-              orderId: data.data?.orderId || "N/A",
-              productTitle: product!.title,
-              quantity: qty,
-              totalAmount: currentPrice * qty,
-              currency: product!.currency,
-              hasCredentials: !!data.data?.credentials,
-            };
-
-            setOrderData(orderInfo);
-            setSuccessOpen(true);
-            hideLoading();
-          } catch (e) {
-            console.error(e);
-            hideLoading();
-            show("Có lỗi xảy ra khi tạo đơn hàng");
-          } finally {
-            hideLoading();
-          }
-        }}
-        productTitle={product!.title}
-        quantity={qty}
-        unitPrice={currentPrice}
-        currency={product!.currency}
-        balance={currentUser?.balance}
-      />
-
-      {/* Purchase success modal */}
-      {orderData && (
-        <PurchaseSuccessModal
-          open={successOpen}
-          onClose={() => {
-            setSuccessOpen(false);
-            setOrderData(null);
-          }}
-          orderData={orderData}
-        />
-      )}
     </div>
   );
 }
-

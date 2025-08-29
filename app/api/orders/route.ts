@@ -22,222 +22,168 @@ function err(message: string, status = 400, extra?: Record<string, any>) {
 // Body: { productId: string, quantity: number, promotion?: string }
 // Creates an order by purchasing from supplier and returning credentials
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return err("Cần đăng nhập", 401);
-    }
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return err("Cần đăng nhập", 401);
+  }
 
-    const user = dataStore.getUserByEmail(session.user.email);
-    if (!user) {
-      return err("Không tìm thấy người dùng", 400);
-    }
+  const user = dataStore.getUserByEmail(session.user.email);
+  if (!user) {
+    return err("Không tìm thấy người dùng", 404);
+  }
 
-    const {
-      productId,
-      quantity = 1,
-      promotion,
-      selectedOptionId,
-    } = await request.json();
-    if (!productId || quantity <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Thiếu thông tin đơn hàng" },
-        { status: 400 }
-      );
-    }
+  const { items } = await request.json();
+  if (!Array.isArray(items) || items.length === 0) {
+    return err("Giỏ hàng trống hoặc không hợp lệ", 400);
+  }
 
-    const product = dataStore.getProduct(productId);
+  let totalAmount = 0;
+  const validatedItems = [];
+
+  // 1. Validate all items and calculate total amount first
+  for (const item of items) {
+    const product = dataStore.getProduct(item.productId);
     if (!product || !product.isActive) {
-      return NextResponse.json(
-        { success: false, error: "Sản phẩm không khả dụng" },
-        { status: 400 }
+      return err(
+        `Sản phẩm "${item.product?.title || item.productId}" không tồn tại.`,
+        400
       );
     }
 
-    // Validate selected option if product has options
     let selectedOption = null;
-    const hasOptions = product.options && product.options.length > 0;
-
-    if (hasOptions) {
-      if (!selectedOptionId) {
-        return NextResponse.json(
-          { success: false, error: "Vui lòng chọn loại sản phẩm" },
-          { status: 400 }
-        );
+    if (product.options && product.options.length > 0) {
+      if (!item.optionId) {
+        return err(`Vui lòng chọn loại cho sản phẩm "${product.title}".`, 400);
       }
-      selectedOption = product.options!.find(
-        (opt) => opt.id === selectedOptionId
-      );
+      selectedOption = product.options.find((opt) => opt.id === item.optionId);
       if (!selectedOption) {
-        return NextResponse.json(
-          { success: false, error: "Loại sản phẩm không hợp lệ" },
-          { status: 400 }
-        );
+        return err(`Loại sản phẩm không hợp lệ cho "${product.title}".`, 400);
       }
-      if (selectedOption.stock === 0) {
-        return NextResponse.json(
-          { success: false, error: "Sản phẩm đã hết hàng" },
-          { status: 400 }
-        );
-      }
-      if (selectedOption.stock < quantity) {
-        return NextResponse.json(
-          { success: false, error: `Chỉ còn ${selectedOption.stock} sản phẩm` },
-          { status: 400 }
+      if (selectedOption.stock < item.quantity) {
+        return err(
+          `Không đủ hàng cho "${product.title}". Chỉ còn ${selectedOption.stock}.`,
+          400
         );
       }
     } else {
-      // For products without options, check main product stock
-      if (product.stock === 0) {
-        return NextResponse.json(
-          { success: false, error: "Sản phẩm đã hết hàng" },
-          { status: 400 }
-        );
-      }
-      if (product.stock && product.stock < quantity) {
-        return NextResponse.json(
-          { success: false, error: `Chỉ còn ${product.stock} sản phẩm` },
-          { status: 400 }
+      if (product.stock && product.stock < item.quantity) {
+        return err(
+          `Không đủ hàng cho "${product.title}". Chỉ còn ${product.stock}.`,
+          400
         );
       }
     }
 
-    // Use option price if available, otherwise use product price
     const unitPrice = selectedOption ? selectedOption.price : product.price;
-
     if (!unitPrice || unitPrice <= 0) {
-      return NextResponse.json(
-        { success: false, error: "Giá sản phẩm không hợp lệ" },
-        { status: 400 }
-      );
+      return err(`Giá sản phẩm không hợp lệ cho "${product.title}".`, 400);
     }
 
-    const totalAmount = unitPrice * quantity;
+    totalAmount += unitPrice * item.quantity;
+    validatedItems.push({ ...item, product, selectedOption, unitPrice });
+  }
 
-    // Check balance (simple wallet-based)
-    if (user.balance < totalAmount) {
-      return NextResponse.json(
-        { success: false, error: "Số dư không đủ. Vui lòng nạp thêm tiền." },
-        { status: 400 }
-      );
+  // 2. Check user balance
+  if (user.balance < totalAmount) {
+    return err("Số dư không đủ. Vui lòng nạp thêm tiền.", 402);
+  }
+
+  // 3. Process the order
+  const createdOrders: Order[] = [];
+  const checkoutId = `co-${Date.now()}`;
+
+  // Debit user's balance first
+  dataStore.updateUser(user.id, {
+    balance: user.balance - totalAmount,
+    totalSpent: (user.totalSpent || 0) + totalAmount,
+    totalOrders: (user.totalOrders || 0) + validatedItems.length,
+  });
+
+  // Create a single transaction for the whole cart
+  dataStore.createTransaction({
+    userId: user.id,
+    type: "purchase",
+    amount: -totalAmount,
+    description: `Thanh toán giỏ hàng (${validatedItems.length} sản phẩm)`,
+    orderId: checkoutId, // Use a checkout ID for the parent transaction
+    metadata: { items: validatedItems.map((it) => it.productId) },
+  });
+
+  try {
+    for (const item of validatedItems) {
+      const orderId = `ord-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+      const order: Order = {
+        id: orderId,
+        userId: user.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalAmount: item.unitPrice * item.quantity,
+        status: ORDER_STATUS.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        selectedOptionId: item.optionId,
+        checkoutId: checkoutId,
+      };
+      dataStore.createOrder(order);
+      createdOrders.push(order);
+
+      // TODO: In a real scenario, you might want to aggregate supplier calls
+      // For now, we process them sequentially.
+      const kioskToken =
+        item.selectedOption?.kioskToken || process.env.TAPHOAMMO_KIOSK_TOKEN;
+      const supplier = new TapHoaMMOClient({ kioskToken });
+      const buyResp = await supplier.buyProducts(item.quantity);
+
+      if (!buyResp || buyResp.success !== "true" || !buyResp.order_id) {
+        throw new Error(
+          `Lỗi đặt hàng từ nhà cung cấp cho sản phẩm ${item.product.title}: ${
+            buyResp?.description || "Unknown error"
+          }`
+        );
+      }
+
+      const processor = getOrderProcessor();
+      processor.addJob(order.id, buyResp.order_id, kioskToken);
     }
 
-    // Create pending order record
-    const orderId = `ord-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
-    const order: Order = {
-      id: orderId,
-      userId: user.id,
-      productId,
-      quantity,
-      unitPrice,
-      totalAmount,
-      status: ORDER_STATUS.PENDING,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      selectedOptionId: selectedOption?.id,
-    };
-    dataStore.createOrder(order);
-
-    // Debit user's balance and log transaction
-    dataStore.updateUser(user.id, {
-      balance: user.balance - totalAmount,
-      totalSpent: (user.totalSpent || 0) + totalAmount,
-      totalOrders: (user.totalOrders || 0) + 1,
+    return ok({
+      checkoutId: checkoutId,
+      orders: createdOrders.map((o) => o.id),
+      message: "Đơn hàng của bạn đang được xử lý.",
     });
+  } catch (error: any) {
+    console.error("Checkout processing error:", error);
+
+    // Rollback: Refund the user and cancel all created orders
+    dataStore.updateUser(user.id, {
+      balance: user.balance, // Balance was already debited, so we just need to add it back
+    });
+    const freshUser = dataStore.getUser(user.id)!;
+    dataStore.updateUser(freshUser.id, {
+      balance: freshUser.balance + totalAmount,
+    });
+
     dataStore.createTransaction({
       userId: user.id,
-      type: "purchase",
-      amount: -totalAmount,
-      description: `${product.title} x${quantity}`,
-      orderId: order.id,
-      metadata: { productId, quantity },
+      type: "refund",
+      amount: totalAmount,
+      description: `Hoàn tiền do lỗi thanh toán giỏ hàng ${checkoutId}`,
+      orderId: checkoutId,
     });
 
-    // Prepare supplier client (allow env fallback)
-    const kioskToken =
-      selectedOption?.kioskToken ||
-      process.env.TAPHOAMMO_KIOSK_TOKEN ||
-      undefined;
-
-    let supplier: TapHoaMMOClient;
-    try {
-      supplier = new TapHoaMMOClient({
-        kioskToken,
-      });
-    } catch (e: any) {
-      // Cancel order and refund due to missing/invalid supplier config
+    for (const order of createdOrders) {
       dataStore.updateOrder(order.id, {
         status: ORDER_STATUS.CANCELLED,
-        updatedAt: new Date(),
-        cancelledAt: new Date(),
-        adminNotes: "Thiếu cấu hình API nhà cung cấp",
+        adminNotes: `Lỗi hệ thống: ${error.message}`,
       });
-      const freshUser = dataStore.getUser(user.id)!;
-      dataStore.updateUser(freshUser.id, {
-        balance: freshUser.balance + totalAmount,
-      });
-      dataStore.createTransaction({
-        userId: freshUser.id,
-        type: "refund",
-        amount: totalAmount,
-        description: `Hoàn tiền do lỗi cấu hình đơn hàng ${order.id}`,
-        orderId: order.id,
-      });
-      return err(
-        "Thiếu cấu hình API nhà cung cấp. Vui lòng liên hệ quản trị.",
-        500
-      );
     }
 
-    const buyResp = await supplier.buyProducts(quantity, promotion);
-    if (!buyResp || buyResp.success !== "true" || !buyResp.order_id) {
-      const message =
-        (buyResp && buyResp.description) ||
-        "Không thể đặt hàng từ nhà cung cấp";
-      dataStore.updateOrder(order.id, {
-        status: ORDER_STATUS.CANCELLED,
-        updatedAt: new Date(),
-      });
-      // Refund
-      const freshUser = dataStore.getUser(user.id)!;
-      dataStore.updateUser(freshUser.id, {
-        balance: freshUser.balance + totalAmount,
-      });
-      dataStore.createTransaction({
-        userId: freshUser.id,
-        type: "refund",
-        amount: totalAmount,
-        description: `Hoàn tiền thất bại đơn hàng ${order.id}`,
-        orderId: order.id,
-      });
-      return NextResponse.json(
-        { success: false, error: message },
-        { status: 502 }
-      );
-    }
-
-    // Add to background processing queue instead of synchronous polling
-    const upstreamOrderId = buyResp.order_id;
-    const processor = getOrderProcessor();
-    processor.addJob(order.id, upstreamOrderId, kioskToken);
-
-    // Return immediately with pending status
-    return NextResponse.json({
-      success: true,
-      data: {
-        orderId: order.id,
-        status: ORDER_STATUS.PENDING,
-        message:
-          "Đơn hàng đang được xử lý. Bạn sẽ nhận được thông báo khi hoàn tất.",
-      },
-    });
-  } catch (error) {
-    console.error("Create order error:", error);
-    return NextResponse.json(
-      { success: false, error: "Có lỗi xảy ra khi tạo đơn hàng" },
-      { status: 500 }
+    return err(
+      error.message || "Có lỗi xảy ra khi xử lý đơn hàng của bạn.",
+      500
     );
   }
 }
