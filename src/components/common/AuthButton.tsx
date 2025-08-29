@@ -13,6 +13,7 @@ import {
   useDataSync,
 } from "@/src/components/providers/DataSyncProvider";
 import { useAccountRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { formatCurrency } from "@/src/core/admin";
 
 export default function AuthButton() {
@@ -26,6 +27,7 @@ export default function AuthButton() {
   const currentUser = useCurrentUser();
   const { getUserTransactions, lastUpdate } = useDataSync();
   const [transactions, setTransactions] = useState<any[]>([]);
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
   // Set up real-time updates for this user - always call hooks
   const { isConnected } = useAccountRealtimeUpdates(currentUser?.id);
@@ -166,6 +168,32 @@ export default function AuthButton() {
             </div>
 
             {/* Menu Items */}
+            {isMobile && (
+              <>
+                <Link
+                  href="/products"
+                  role="menuitem"
+                  tabIndex={0}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
+                >
+                  <span className="text-base">🛍️</span>
+                  Sản phẩm
+                </Link>
+                <Link
+                  href="/deposit"
+                  role="menuitem"
+                  tabIndex={0}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-sm hover:bg-amber-50 dark:hover:bg-amber-300/10 cursor-pointer transition-colors"
+                >
+                  <span className="text-base">💰</span>
+                  Nạp tiền
+                </Link>
+                <div className="border-t border-gray-200 dark:border-gray-800 my-1" />
+              </>
+            )}
+
             <Link
               href="/account"
               role="menuitem"

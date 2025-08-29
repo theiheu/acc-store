@@ -75,70 +75,24 @@ export default function Navbar() {
           </NavLink>
         </nav>
 
-        {/* Desktop right (actions) */}
-        <nav className="hidden md:flex items-center gap-2">
-          <NavLink href="/deposit" active={pathname === "/deposit"}>
+        {/* Right side actions */}
+        <nav className="flex items-center gap-2">
+          {/* Desktop-only nav links that will be moved to dropdown on mobile */}
+
+          <NavLink
+            href="/deposit"
+            active={pathname === "/deposit"}
+            className="hidden md:flex"
+          >
             Nạp tiền
           </NavLink>
+
+          {/* Auth button is always visible */}
           <div className="ml-2">
             <AuthButton />
           </div>
         </nav>
-
-        {/* Mobile controls */}
-        <button
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <span className="relative block w-4">
-            <span
-              className={`absolute left-0 block h-0.5 w-4 bg-current transition-all ${
-                open ? "top-2 rotate-45" : "top-1"
-              }`}
-            />
-            <span
-              className={`absolute left-0 block h-0.5 w-4 bg-current transition-all ${
-                open ? "opacity-0" : "top-2"
-              }`}
-            />
-            <span
-              className={`absolute left-0 block h-0.5 w-4 bg-current transition-all ${
-                open ? "top-2 -rotate-45" : "top-3"
-              }`}
-            />
-          </span>
-        </button>
       </div>
-
-      {/* Mobile panel */}
-      {open && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-950/95 backdrop-blur px-4 pb-4 shadow-sm">
-          <div className="py-3 flex flex-col gap-2">
-            <NavLink href="/" active={isHome} onClick={() => setOpen(false)}>
-              Trang chủ
-            </NavLink>
-            <NavLink
-              href="/products"
-              active={isProducts}
-              onClick={() => setOpen(false)}
-            >
-              Sản phẩm
-            </NavLink>
-            <NavLink
-              href="/deposit"
-              active={pathname === "/deposit"}
-              onClick={() => setOpen(false)}
-            >
-              Nạp tiền
-            </NavLink>
-            <div className="pt-2">
-              <AuthButton />
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
