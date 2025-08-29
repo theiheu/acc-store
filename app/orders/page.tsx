@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
@@ -13,11 +12,14 @@ import OrderFilters, {
   OrderFiltersState,
 } from "@/src/components/orders/OrderFilters";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
+import Pagination from "@/src/components/ui/Pagination";
 
 export default function OrdersPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [orders, setOrders] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [productsMap, setProductsMap] = useState<
     Record<string, Product | null>
   >({});
@@ -34,18 +36,16 @@ export default function OrdersPage() {
   const loadOrders = useCallback(async () => {
     try {
       setLoadingOrders(true);
-      const res = await fetch("/api/user/orders");
+      const res = await fetch(`/api/user/orders?page=${currentPage}`);
       const data = await res.json();
       if (data.success) {
         const list = data.data || [];
-        const getTime = (o: any) => {
-          const t = o?.updatedAt ?? o?.createdAt ?? 0;
-          return new Date(t).getTime() || 0;
-        };
-        const sorted = [...list].sort((a, b) => getTime(b) - getTime(a));
-        setOrders(sorted);
+        setOrders(list);
+        setTotalPages(data.totalPages || 1);
+        setCurrentPage(data.currentPage || 1);
+
         const uniqueProductIds = Array.from(
-          new Set(sorted.map((o: any) => o.productId).filter(Boolean))
+          new Set(list.map((o: any) => o.productId).filter(Boolean))
         );
         const entries: Array<[string, Product | null]> = await Promise.all(
           uniqueProductIds.map(async (pid: string) => {
@@ -65,7 +65,7 @@ export default function OrdersPage() {
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [currentPage]);
 
   // Realtime auto-refresh orders
   useRealtimeUpdates({
@@ -93,6 +93,11 @@ export default function OrdersPage() {
     } catch {
       showToast("Sao chép thất bại", "error");
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -155,19 +160,9 @@ export default function OrdersPage() {
           Chưa có đơn hàng nào.
         </div>
       ) : (
-        <div className="space-y-3">
-          {orders
-            .filter((o) => {
-              const q = filters.q.trim().toLowerCase();
-              const statusOk =
-                filters.status === "all" || o.status === filters.status;
-              if (!statusOk) return false;
-              if (!q) return true;
-              const p = productsMap[o.productId as string];
-              const title = p?.title?.toLowerCase() || "";
-              return o.id.toLowerCase().includes(q) || title.includes(q);
-            })
-            .map((o) => (
+        <>
+          <div className="space-y-3">
+            {orders.map((o) => (
               <OrderCard
                 key={o.id}
                 order={o}
@@ -176,7 +171,18 @@ export default function OrdersPage() {
                 onCopy={handleCopy}
               />
             ))}
-        </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Order Status Info */}

@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const orders = dataStore.getOrdersByUser(user.id).map((o) => {
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+
+    const allOrders = dataStore.getOrdersByUser(user.id).map((o) => {
       const p = dataStore.getProduct(o.productId);
       const optLabel = p?.options?.find(
         (opt) => opt.id === o.selectedOptionId
@@ -33,7 +37,18 @@ export async function GET(request: NextRequest) {
         selectedOptionLabel: optLabel,
       };
     });
-    return NextResponse.json({ success: true, data: orders });
+
+    const totalPages = Math.ceil(allOrders.length / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedOrders = allOrders.slice(startIndex, endIndex);
+
+    return NextResponse.json({
+      success: true,
+      data: paginatedOrders,
+      totalPages,
+      currentPage: page,
+    });
   } catch (e) {
     console.error("List orders error:", e);
     return NextResponse.json(

@@ -124,40 +124,39 @@ export default function AccountPage() {
     fetchRecentOrders();
   }, [currentUser, lastUpdate, fetchRecentOrders]);
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await withLoading(async () => {
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: displayName }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        show("Cập nhật thông tin thành công!");
+        // Manually update session as next-auth session is not automatically refreshed
+        // This is a common workaround.
+        const newSession = {
+          ...session,
+          user: { ...session?.user, name: displayName },
+        };
+        // A proper implementation might use `useSession().update(newSession)` if available and configured
+      } else {
+        show(data.error || "Đã có lỗi xảy ra.", "error");
+      }
+    }, "Đang cập nhật...");
+  };
+
   async function handleSignOut() {
     try {
       await withLoading(async () => {
         await signOut({ redirect: false });
         router.push("/");
+        show("Đã đăng xuất thành công");
       }, "Đang đăng xuất...");
-
-      const handleUpdateProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
-        await withLoading(async () => {
-          const res = await fetch("/api/user/profile", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: displayName }),
-          });
-
-          const data = await res.json();
-
-          if (data.success) {
-            show("Cập nhật thông tin thành công!");
-            // Manually update session as next-auth session is not automatically refreshed
-            // This is a common workaround.
-            const newSession = {
-              ...session,
-              user: { ...session?.user, name: displayName },
-            };
-            // A proper implementation might use `useSession().update(newSession)` if available and configured
-          } else {
-            show(data.error || "Đã có lỗi xảy ra.", "error");
-          }
-        }, "Đang cập nhật...");
-      };
-
-      show("Đã đăng xuất thành công");
     } catch (error) {
       show("Có lỗi xảy ra khi đăng xuất");
       console.error("Sign out error:", error);
