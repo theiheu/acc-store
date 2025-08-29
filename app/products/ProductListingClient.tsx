@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import ProductCard from "@/src/components/product/ProductCard";
 import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
 import EmptyState from "@/src/components/ui/EmptyState";
+import Pagination from "@/src/components/ui/Pagination";
 import CategorySidebar from "@/src/components/layout/CategorySidebar";
 import CategorySidebarSkeleton from "@/src/components/layout/CategorySidebarSkeleton";
-import DebugPanel from "@/src/components/ui/DebugPanel";
+
 import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 import type { Product } from "@/src/core/products";
 
@@ -27,6 +28,8 @@ export default function ProductListingClient({
 
   const [products, setProducts] = useState<Product[]>(initialProducts || []);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const [category, setCategory] = useState<string>(initialCategory || "all");
   const [q, setQ] = useState<string>(initialQ || "");
@@ -68,20 +71,32 @@ export default function ProductListingClient({
         const params = new URLSearchParams();
         if (category && category !== "all") params.set("category", category);
         if (debouncedQ) params.set("search", debouncedQ);
-        const res = await fetch(
-          `/api/products${params.size ? `?${params.toString()}` : ""}`
-        );
+        params.set("page", currentPage.toString());
+
+        const res = await fetch(`/api/products?${params.toString()}`);
         const json = await res.json();
-        if (mounted && json?.success && Array.isArray(json.data)) {
+
+        if (mounted && json?.success) {
           setProducts(json.data as Product[]);
+          setTotalPages(json.totalPages || 1);
         }
-      } catch {}
-      setIsLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
     };
     fetchProducts();
     return () => {
       mounted = false;
     };
+  }, [category, debouncedQ, currentPage]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [category, debouncedQ]);
 
   // Counts and filtering
@@ -146,9 +161,13 @@ export default function ProductListingClient({
               ))}
             </div>
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
-      <DebugPanel />
     </div>
   );
 }

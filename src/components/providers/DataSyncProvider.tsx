@@ -363,6 +363,11 @@ export function DataSyncProvider({
     }
   }, [currentUserEmail]);
 
+  // Fetch all data on mount and when user changes
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
+
   // Set up current user: prefer users state (from SSE); fallback to dataStore
   useEffect(() => {
     if (!currentUserEmail) {

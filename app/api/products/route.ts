@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     // Parse query parameters
     const category = searchParams.get("category") || "";
     const search = searchParams.get("search") || "";
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "8", 10);
 
     // Get public products from data store
     let products = dataStore.getPublicProducts();
@@ -44,14 +46,27 @@ export async function GET(request: NextRequest) {
       return (b.soldCount || 0) - (a.soldCount || 0);
     });
 
-    return new NextResponse(JSON.stringify({ success: true, data: products }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        // Cache at CDN for 60s, allow stale for 300s
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-      },
-    });
+    // Apply pagination
+    const totalProducts = products.length;
+    const totalPages = Math.ceil(totalProducts / limit);
+    const paginatedProducts = products.slice((page - 1) * limit, page * limit);
+
+    return new NextResponse(
+      JSON.stringify({
+        success: true,
+        data: paginatedProducts,
+        totalPages,
+        currentPage: page,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          // Cache at CDN for 60s, allow stale for 300s
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        },
+      }
+    );
   } catch (error) {
     console.error("Get public products error:", error);
     return NextResponse.json(
