@@ -13,6 +13,7 @@ import ProductInfoTabs from "@/src/components/product/ProductInfoTabs";
 import ProductImage from "@/src/components/product/ProductImage";
 import ProductPurchaseForm from "@/src/components/forms/ProductPurchaseForm";
 import { useGlobalLoading } from "@/src/components/providers/GlobalLoadingProvider";
+import AddToCartToast from "@/src/components/ui/AddToCartToast";
 
 import { useDataSync } from "@/src/components/providers/DataSyncProvider";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
@@ -171,7 +172,7 @@ export default function ProductDetailClient({ initialId }: Props) {
       type: "ADD_ITEM",
       item: { product, option: selectedOption, quantity: qty },
     });
-    show(`Đã thêm "${product.title}" vào giỏ hàng!`);
+    show(<AddToCartToast product={product} />);
   }, [product, selectedOption, qty, dispatch, show]);
 
   const handleBuyNow = useCallback(() => {

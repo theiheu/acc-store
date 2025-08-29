@@ -58,7 +58,7 @@ export default function CartPage() {
         dispatch({ type: "CLEAR_CART" });
         router.push("/orders");
       } else {
-        show(data.error || "Đã có lỗi xảy ra khi thanh toán.", "error");
+        show(data.error || "Đã có lỗi xảy ra khi thanh toán.", 1);
       }
     }, "Đang xử lý thanh toán...");
   };

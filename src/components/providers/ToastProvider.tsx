@@ -1,22 +1,61 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
+
+type Toast = {
+  id: number;
+  content: React.ReactNode;
+  durationMs: number;
+};
 
 type ToastCtx = {
-  show: (message: string, durationMs?: number) => void;
+  show: (content: React.ReactNode, durationMs?: number) => void;
 };
 
 const Ctx = createContext<ToastCtx | null>(null);
 
-export default function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [message, setMessage] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
+let toastId = 0;
 
-  const show = useCallback((msg: string, durationMs = 1800) => {
-    setMessage(msg);
-    setVisible(true);
-    window.clearTimeout((show as any)._t);
-    (show as any)._t = window.setTimeout(() => setVisible(false), durationMs);
+export default function ToastProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [currentToast, setCurrentToast] = useState<Toast | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+
+  const handleClose = useCallback(() => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setCurrentToast(null);
+  }, []);
+
+  useEffect(() => {
+    if (!currentToast && toasts.length > 0) {
+      const nextToast = toasts[0];
+      setCurrentToast(nextToast);
+      setToasts((prev) => prev.slice(1));
+
+      timeoutRef.current = window.setTimeout(
+        () => handleClose(),
+        nextToast.durationMs
+      );
+    }
+  }, [currentToast, toasts, handleClose]);
+
+  const show = useCallback((content: React.ReactNode, durationMs = 4000) => {
+    setToasts((prev) => [...prev, { id: toastId++, content, durationMs }]);
   }, []);
 
   const value = useMemo(() => ({ show }), [show]);
@@ -25,16 +64,39 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
     <Ctx.Provider value={value}>
       {children}
       {/* Toast UI */}
-      <div className="pointer-events-none fixed inset-x-0 top-4 z-[100] flex justify-center">
-        <div
-          className={`transition-all duration-200 rounded-lg bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-2 text-sm shadow ${
-            visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-          }`}
-          role="status"
-          aria-live="polite"
-        >
-          {message}
-        </div>
+      <div
+        className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 rounded-lg bg-white text-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg ${
+          currentToast
+            ? "opacity-100 translate-y-0 pointer-events-auto"
+            : "opacity-0 -translate-y-4 pointer-events-none"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
+        {currentToast && (
+          <div className="flex items-center pl-4 pr-2 py-2">
+            <div className="flex-grow text-sm">{currentToast.content}</div>
+            <button
+              onClick={handleClose}
+              aria-label="Close notification"
+              className="ml-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+            >
+              <svg
+                className="w-4 h-4 text-gray-500 dark:text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </Ctx.Provider>
   );
@@ -42,7 +104,7 @@ export default function ToastProvider({ children }: { children: React.ReactNode 
 
 export function useToastContext() {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useToastContext must be used within ToastProvider");
+  if (!ctx)
+    throw new Error("useToastContext must be used within ToastProvider");
   return ctx;
 }
-
