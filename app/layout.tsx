@@ -39,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gradient-to-b from-amber-50 via-white to-white dark:from-gray-950 dark:via-gray-950 dark:to-black`}
       >
         <Providers>
           <Navbar />

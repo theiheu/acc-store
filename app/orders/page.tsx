@@ -8,6 +8,7 @@ import Link from "next/link";
 import LoadingSpinner from "@/src/components/ui/LoadingSpinner";
 import type { Product } from "@/src/core/products";
 import OrderCard from "@/src/components/orders/OrderCard";
+import OrderCardSkeleton from "@/src/components/orders/OrderCardSkeleton";
 import OrderFilters, {
   OrderFiltersState,
 } from "@/src/components/orders/OrderFilters";
@@ -144,8 +145,10 @@ export default function OrdersPage() {
 
       {/* Orders list */}
       {loadingOrders ? (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6 text-center">
-          Đang tải đơn hàng...
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <OrderCardSkeleton key={i} />
+          ))}
         </div>
       ) : orders.length === 0 ? (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm p-6 text-center">

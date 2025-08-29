@@ -375,7 +375,7 @@ function ProductManagement() {
                         )}
                       </td>
                       <td className="px-3 py-4 text-sm text-gray-900 dark:text-gray-100">
-                        {product.sold || 0}
+                        {/* Số lượng đã bán không có trong AdminProduct */}0
                       </td>
                       <td className="px-3 py-4">
                         <span

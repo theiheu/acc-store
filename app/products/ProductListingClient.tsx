@@ -6,6 +6,7 @@ import ProductCard from "@/src/components/product/ProductCard";
 import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
 import EmptyState from "@/src/components/ui/EmptyState";
 import CategorySidebar from "@/src/components/layout/CategorySidebar";
+import CategorySidebarSkeleton from "@/src/components/layout/CategorySidebarSkeleton";
 import DebugPanel from "@/src/components/ui/DebugPanel";
 import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
 import type { Product } from "@/src/core/products";
@@ -33,7 +34,8 @@ export default function ProductListingClient({
 
   // Sync from URL on mount and when changes
   useEffect(() => {
-    const c = (searchParams.get("category") as string | null) ?? initialCategory;
+    const c =
+      (searchParams.get("category") as string | null) ?? initialCategory;
     const qParam = (searchParams.get("q") as string | null) ?? initialQ;
     if (c && c !== category) setCategory(c);
     if ((qParam || "") !== q) setQ(qParam || "");
@@ -66,7 +68,9 @@ export default function ProductListingClient({
         const params = new URLSearchParams();
         if (category && category !== "all") params.set("category", category);
         if (debouncedQ) params.set("search", debouncedQ);
-        const res = await fetch(`/api/products${params.size ? `?${params.toString()}` : ""}`);
+        const res = await fetch(
+          `/api/products${params.size ? `?${params.toString()}` : ""}`
+        );
         const json = await res.json();
         if (mounted && json?.success && Array.isArray(json.data)) {
           setProducts(json.data as Product[]);
@@ -86,7 +90,9 @@ export default function ProductListingClient({
 
   return (
     <div className="mx-auto max-w-6xl xl:max-w-7xl 2xl:max-w-[88rem] px-4 lg:px-6 py-8">
-      <h1 className="text-2xl lg:text-3xl font-semibold mb-6 lg:mb-8">Sản phẩm</h1>
+      <h1 className="text-2xl lg:text-3xl font-semibold mb-6 lg:mb-8">
+        Sản phẩm
+      </h1>
       <div className="mb-4">
         <input
           type="search"
@@ -97,28 +103,40 @@ export default function ProductListingClient({
         />
       </div>
 
-      {isLoading && (
-        <div className="flex-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ProductCardSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="flex items-start gap-6 lg:gap-8">
         <div className="sticky top-24 hidden md:block md:w-64 shrink-0">
-          <CategorySidebar value={category} onChange={setCategory} counts={counts} />
+          {isLoading ? (
+            <CategorySidebarSkeleton />
+          ) : (
+            <CategorySidebar
+              value={category}
+              onChange={setCategory}
+              counts={counts}
+            />
+          )}
         </div>
         <div className="flex-1">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="py-8">
               <EmptyState
                 icon="🔍"
                 title="Không tìm thấy sản phẩm nào"
-                description={q ? "Hãy thử từ khóa khác hoặc xóa bộ lọc." : "Hiện chưa có sản phẩm để hiển thị."}
-                primaryAction={q ? { label: "Xem tất cả sản phẩm", href: "/products" } : { label: "Về trang chủ", href: "/" }}
+                description={
+                  q
+                    ? "Hãy thử từ khóa khác hoặc xóa bộ lọc."
+                    : "Hiện chưa có sản phẩm để hiển thị."
+                }
+                primaryAction={
+                  q
+                    ? { label: "Xem tất cả sản phẩm", href: "/products" }
+                    : { label: "Về trang chủ", href: "/" }
+                }
               />
             </div>
           ) : (
@@ -134,4 +152,3 @@ export default function ProductListingClient({
     </div>
   );
 }
-

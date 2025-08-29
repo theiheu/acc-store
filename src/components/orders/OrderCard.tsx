@@ -91,9 +91,9 @@ export default function OrderCard({
       <div className="flex items-center gap-3">
         {/* Thumbnail */}
         <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
-          {p === undefined || (p === null && loadingProduct) ? (
+          {loadingProduct || !p ? (
             <Skeleton className="w-full h-full" />
-          ) : p?.imageUrl ? (
+          ) : p.imageUrl ? (
             <Image
               src={p.imageUrl}
               alt={p.title}
@@ -104,7 +104,7 @@ export default function OrderCard({
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-2xl opacity-80">
-                {p?.imageEmoji ?? "🛍️"}
+                {p.imageEmoji ?? "🛍️"}
               </span>
             </div>
           )}
@@ -116,11 +116,11 @@ export default function OrderCard({
             <div>
               <div className="text-sm mt-0.5">
                 {order.productId ? (
-                  p === undefined ? (
+                  loadingProduct || !p ? (
                     <SkeletonText width="w-40" />
                   ) : (
                     <Link
-                      href={`/products/${encodeURIComponent(p!.id)}`}
+                      href={`/products/${encodeURIComponent(p.id)}`}
                       className="text-blue-600 dark:text-blue-400 underline underline-offset-2 hover:no-underline font-bold"
                       aria-label={`Xem chi tiết sản phẩm ${title}`}
                     >

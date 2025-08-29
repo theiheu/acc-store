@@ -8,13 +8,19 @@ import ProductCardSkeleton from "@/src/components/ui/ProductCardSkeleton";
 import HomePageSkeleton from "@/src/components/ui/HomePageSkeleton";
 import EmptyState from "@/src/components/ui/EmptyState";
 import CategorySidebar from "@/src/components/layout/CategorySidebar";
+import CategorySidebarSkeleton from "@/src/components/layout/CategorySidebarSkeleton";
+import CategoryListSkeleton from "@/src/components/ui/CategoryListSkeleton";
 import { useProductsWithLoading } from "@/src/components/providers/DataSyncProvider";
 import { useCategoryCounts, useProductFilter } from "@/src/hooks/useCategories";
+import { type Category } from "@/src/core/categories";
+import { type Product } from "@/src/core/products";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { products, isLoading } = useProductsWithLoading();
+  const { products, isLoading: isLoadingProducts } = useProductsWithLoading();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const [category, setCategory] = useState<string>("all");
   const [q, setQ] = useState("");
@@ -23,6 +29,25 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setIsLoadingCategories(true);
+        const res = await fetch("/api/categories");
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setCategories(data.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Initial loading effect
   useEffect(() => {
@@ -112,11 +137,15 @@ export default function Home() {
       <div className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-[88rem] px-4 lg:px-6 mb-4">
         <div className="flex flex-col md:flex-row items-start gap-4 lg:gap-8">
           <div className="md:w-64 md:sticky md:top-24 w-full shrink-0">
-            <CategorySidebar
-              value={category}
-              onChange={setCategory}
-              counts={counts}
-            />
+            {isLoadingProducts ? (
+              <CategorySidebarSkeleton />
+            ) : (
+              <CategorySidebar
+                value={category}
+                onChange={setCategory}
+                counts={counts}
+              />
+            )}
           </div>
           <div className="flex-1 w-full">
             <div className="mb-3">
@@ -161,7 +190,7 @@ export default function Home() {
             </div>
 
             {/* Product grid */}
-            {isFiltering || isSearching || isLoading ? (
+            {isFiltering || isSearching || isLoadingProducts ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <ProductCardSkeleton key={i} />
