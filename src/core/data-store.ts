@@ -61,7 +61,11 @@ type DataStoreEvent =
   | { type: "ORDER_UPDATED"; payload: import("./admin").Order }
   | { type: "CATEGORY_CREATED"; payload: import("./categories").Category }
   | { type: "CATEGORY_UPDATED"; payload: import("./categories").Category }
-  | { type: "CATEGORY_DELETED"; payload: import("./categories").Category };
+  | { type: "CATEGORY_DELETED"; payload: import("./categories").Category }
+  | {
+      type: "CATEGORIES_REORDERED";
+      payload: import("./categories").Category[];
+    };
 
 type EventListener = (event: DataStoreEvent) => void;
 
@@ -326,7 +330,7 @@ class DataStore {
       },
     ];
 
-    defaultCategories.forEach((c) => {
+    defaultCategories.forEach((c, idx) => {
       const now = new Date();
       const id = `cat-${c.slug}`;
       this.categories.set(id, {
@@ -335,9 +339,10 @@ class DataStore {
         slug: c.slug,
         description: c.description,
         isActive: c.isActive,
+        sortOrder: idx, // seed order
         createdAt: now,
         updatedAt: now,
-      });
+      } as any);
     });
     // Load existing users from file first
     this.loadUsersFromFile();
@@ -398,7 +403,7 @@ class DataStore {
             isActive: true,
           },
         ];
-      defaults.forEach((c) => {
+      defaults.forEach((c, idx) => {
         const now = new Date();
         const id = `cat-${c.slug}`;
         this.categories.set(id, {
@@ -407,9 +412,10 @@ class DataStore {
           slug: c.slug,
           description: c.description,
           isActive: c.isActive,
+          sortOrder: idx,
           createdAt: now,
           updatedAt: now,
-        });
+        } as any);
       });
       this.scheduleSave();
     }
@@ -885,9 +891,13 @@ class DataStore {
 
   // Category operations
   getCategories(): Category[] {
-    return Array.from(this.categories.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    // Sort by explicit sortOrder (ascending), then by createdAt as fallback
+    return Array.from(this.categories.values()).sort((a, b) => {
+      const ao = (a as any).sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const bo = (b as any).sortOrder ?? Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
   }
 
   getActiveCategories(): Category[] {
@@ -916,6 +926,19 @@ class DataStore {
     }
 
     const now = new Date();
+    // Determine next sortOrder (append to end)
+    const existingIds = Array.from(this.categories.keys());
+    let nextOrder = 0;
+    if (existingIds.length > 0) {
+      nextOrder =
+        Math.max(
+          0,
+          ...existingIds.map(
+            (id) => (this.categories.get(id) as any)?.sortOrder ?? -1
+          )
+        ) + 1;
+    }
+
     const category: Category = {
       id: `cat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       name,
@@ -926,9 +949,10 @@ class DataStore {
         ? data.featuredProductIds
         : [],
       isActive: data.isActive ?? true,
+      sortOrder: nextOrder as any,
       createdAt: now,
       updatedAt: now,
-    };
+    } as any;
 
     this.categories.set(category.id, category);
 
@@ -1056,6 +1080,32 @@ class DataStore {
       this.scheduleSave();
     }
     return ok;
+  }
+
+  // Reorder categories by IDs
+  reorderCategories(newOrder: string[]): Category[] {
+    // Build a map of existing categories
+    const all = Array.from(this.categories.values());
+    // Assign new sortOrder based on provided order for matching IDs
+    const idToIndex = new Map<string, number>();
+    newOrder.forEach((id, idx) => idToIndex.set(id, idx));
+
+    // Determine base index start for items not in newOrder
+    let nextIndex = newOrder.length;
+
+    const updated: Category[] = all.map((c) => {
+      const sortOrder = idToIndex.has(c.id)
+        ? (idToIndex.get(c.id) as number)
+        : nextIndex++;
+      const u = { ...(c as any), sortOrder, updatedAt: new Date() } as Category;
+      this.categories.set(c.id, u);
+      return u;
+    });
+
+    // Emit single event for reordering
+    this.emit({ type: "CATEGORIES_REORDERED", payload: this.getCategories() });
+    this.scheduleSave();
+    return this.getCategories();
   }
 
   // Product operations

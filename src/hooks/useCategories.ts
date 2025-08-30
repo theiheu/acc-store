@@ -108,7 +108,7 @@ export function useCategoryManagement() {
       setIsLoading(true);
       setError(null);
       // Use admin API to include full category fields (including isActive)
-      const res = await fetch("/api/admin/categories");
+      const res = await fetch("/api/admin/categories?page=1&limit=9999");
       const json = await res.json();
       if (json.success) {
         setCategories(json.data as Category[]);

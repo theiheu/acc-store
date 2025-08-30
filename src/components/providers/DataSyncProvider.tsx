@@ -21,6 +21,7 @@ import { Product } from "@/src/core/products";
 import { User } from "@/src/core/auth";
 import { useRealtimeUpdates } from "@/src/hooks/useRealtimeUpdates";
 import { Category } from "@/src/core/categories";
+import { categoryService } from "@/src/services/CategoryService";
 
 // Lightweight debounce to coalesce rapid calls
 function debounce<T extends (...args: any[]) => void>(fn: T, wait = 300) {
@@ -257,6 +258,28 @@ export function DataSyncProvider({
     },
     onProductDeleted: () => {
       onAnyProductChange();
+    },
+    onCategoryUpdated: () => {
+      // Lightweight refresh of categories
+      refreshCategoriesDebounced();
+      setLastUpdate(new Date());
+    },
+    onCategoryDeleted: () => {
+      refreshCategoriesDebounced();
+      setLastUpdate(new Date());
+    },
+    onCategoriesReordered: (data) => {
+      // Update categories immediately with server-sorted list
+      if (Array.isArray(data.categories)) {
+        setCategories(data.categories as unknown as Category[]);
+        // Keep CategoryService cache in sync
+        try {
+          categoryService.updateCache(data.categories);
+        } catch {}
+      } else {
+        refreshCategoriesDebounced();
+      }
+      setLastUpdate(new Date());
     },
     onTransactionCreated: (data) => {
       const tx = data.transaction;

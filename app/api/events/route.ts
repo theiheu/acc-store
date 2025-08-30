@@ -88,6 +88,29 @@ export async function GET(request: NextRequest) {
               });
               break;
 
+            case "CATEGORY_CREATED":
+            case "CATEGORY_UPDATED":
+              sendEvent("category-updated", {
+                type: event.type,
+                category: event.payload,
+                timestamp: new Date().toISOString(),
+              });
+              break;
+
+            case "CATEGORY_DELETED":
+              sendEvent("category-deleted", {
+                category: event.payload,
+                timestamp: new Date().toISOString(),
+              });
+              break;
+
+            case "CATEGORIES_REORDERED":
+              sendEvent("categories-reordered", {
+                categories: event.payload,
+                timestamp: new Date().toISOString(),
+              });
+              break;
+
             case "TRANSACTION_CREATED":
               console.log(
                 "SSE: Broadcasting transaction creation:",

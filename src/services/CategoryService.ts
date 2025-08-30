@@ -16,6 +16,7 @@ export interface Category {
   icon?: string;
   featuredProductIds?: string[];
   isActive: boolean;
+  sortOrder?: number;
   createdAt: string | Date;
   updatedAt: string | Date;
 }

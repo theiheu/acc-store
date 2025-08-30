@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       description: c.description,
       icon: c.icon,
       featuredProductIds: c.featuredProductIds || [],
+      sortOrder: (c as any).sortOrder ?? null,
     }));
     return NextResponse.json({ success: true, data: categories });
   } catch (e) {

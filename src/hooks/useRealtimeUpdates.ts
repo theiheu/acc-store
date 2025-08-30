@@ -14,6 +14,9 @@ interface UseRealtimeUpdatesOptions {
   onBalanceUpdated?: (data: { userId: string; newBalance: number }) => void;
   onProductUpdated?: (data: any) => void;
   onProductDeleted?: (data: { productId: string }) => void;
+  onCategoryUpdated?: (data: any) => void;
+  onCategoryDeleted?: (data: any) => void;
+  onCategoriesReordered?: (data: any) => void;
   onTransactionCreated?: (data: any) => void;
   onTopupRequestCreated?: (data: any) => void;
   onTopupRequestUpdated?: (data: any) => void;
@@ -108,6 +111,9 @@ class SSEConnectionManager {
       "balance-updated",
       "product-updated",
       "product-deleted",
+      "category-updated",
+      "category-deleted",
+      "categories-reordered",
       "transaction-created",
       "order-created",
       "order-updated",
@@ -257,6 +263,36 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
     [options.onProductDeleted, options.showNotifications, show]
   );
 
+  const handleCategoryUpdated = useCallback(
+    (data: any) => {
+      options.onCategoryUpdated?.(data);
+      if (options.showNotifications) {
+        show("Danh mục đã được cập nhật");
+      }
+    },
+    [options.onCategoryUpdated, options.showNotifications, show]
+  );
+
+  const handleCategoryDeleted = useCallback(
+    (data: any) => {
+      options.onCategoryDeleted?.(data);
+      if (options.showNotifications) {
+        show("Danh mục đã được xóa");
+      }
+    },
+    [options.onCategoryDeleted, options.showNotifications, show]
+  );
+
+  const handleCategoriesReordered = useCallback(
+    (data: any) => {
+      options.onCategoriesReordered?.(data);
+      if (options.showNotifications) {
+        show("Thứ tự danh mục đã được cập nhật");
+      }
+    },
+    [options.onCategoriesReordered, options.showNotifications, show]
+  );
+
   const handleTransactionCreated = useCallback(
     (data: any) => {
       options.onTransactionCreated?.(data);
@@ -341,6 +377,15 @@ export function useRealtimeUpdates(options: UseRealtimeUpdatesOptions = {}) {
           break;
         case "product-deleted":
           handleProductDeleted(event.data);
+          break;
+        case "category-updated":
+          handleCategoryUpdated(event.data);
+          break;
+        case "category-deleted":
+          handleCategoryDeleted(event.data);
+          break;
+        case "categories-reordered":
+          handleCategoriesReordered(event.data);
           break;
         case "transaction-created":
           handleTransactionCreated(event.data);

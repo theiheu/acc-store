@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
       productCount: dataStore.getProducts().filter((p) => p.category === c.slug)
         .length,
       featuredProductIds: c.featuredProductIds || [],
+      sortOrder: (c as any).sortOrder ?? null,
     }));
 
     return NextResponse.json({
