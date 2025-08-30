@@ -215,8 +215,8 @@ export default function Home() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 justify-items-center sm:justify-items-stretch gap-6 lg:gap-7 xl:gap-8">
-                {filtered.map((p: Product) => (
-                  <ProductCard key={p.id} product={p} />
+                {filtered.map((p: Product, i: number) => (
+                  <ProductCard key={p.id} product={p} priority={i < 4} />
                 ))}
               </div>
             )}

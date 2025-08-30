@@ -33,7 +33,10 @@ function sanitizeFileName(name: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminPermission(request, "canManageCategories");
+  const authError = await requireAdminPermission(
+    request,
+    "canManageCategories"
+  );
   if (authError) return authError;
 
   try {
@@ -54,7 +57,10 @@ export async function POST(request: NextRequest) {
 
     if (!type || !ALLOWED_MIME.has(type)) {
       return NextResponse.json(
-        { success: false, error: "Định dạng không được hỗ trợ (PNG, JPG, SVG, WebP)" },
+        {
+          success: false,
+          error: "Định dạng không được hỗ trợ (PNG, JPG, SVG, WebP)",
+        },
         { status: 400 }
       );
     }
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
     }
 
     const arrayBuffer = await blob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    let buffer = Buffer.from(arrayBuffer);
 
     // Ensure directory
     const publicDir = path.join(process.cwd(), "public");
@@ -76,7 +82,23 @@ export async function POST(request: NextRequest) {
 
     // Unique sanitized filename
     const orig = (file as any).name || `icon.${type.split("/").pop()}`;
-    const safeName = sanitizeFileName(orig.toLowerCase());
+    // If we can compress (sharp available) and not SVG, convert to webp to reduce size
+    let ext = (orig.split(".").pop() || "png").toLowerCase();
+    let baseName = orig.replace(/\.[^.]*$/, "");
+    let outputName: string;
+
+    try {
+      if (type !== "image/svg+xml") {
+        const sharp = eval("require")("sharp");
+        const webpBuffer = await sharp(buffer).webp({ quality: 80 }).toBuffer();
+        buffer = webpBuffer;
+        ext = "webp";
+      }
+    } catch {
+      // sharp not available; keep original buffer and extension
+    }
+
+    const safeName = sanitizeFileName(`${baseName}.${ext}`.toLowerCase());
     const filePath = path.join(uploadDir, safeName);
 
     fs.writeFileSync(filePath, buffer);
@@ -89,4 +111,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: msg }, { status: 400 });
   }
 }
-

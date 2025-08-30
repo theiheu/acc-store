@@ -16,7 +16,17 @@ export async function GET(request: NextRequest) {
       featuredProductIds: c.featuredProductIds || [],
       sortOrder: (c as any).sortOrder ?? null,
     }));
-    return NextResponse.json({ success: true, data: categories });
+    return new NextResponse(
+      JSON.stringify({ success: true, data: categories }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          // Cache at CDN for 5 minutes, allow stale for 10 minutes
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (e) {
     return NextResponse.json(
       { success: false, error: "Failed to fetch categories" },

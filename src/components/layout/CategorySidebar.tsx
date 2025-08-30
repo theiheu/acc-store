@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCategoryItems } from "@/src/hooks/useCategories";
 
 export default function CategorySidebar({
@@ -88,9 +89,11 @@ export default function CategorySidebar({
               >
                 {typeof c.icon === "string" &&
                 (c.icon.startsWith("/") || c.icon.startsWith("http")) ? (
-                  <img
+                  <Image
                     src={c.icon}
                     alt={c.label}
+                    width={20}
+                    height={20}
                     className="h-5 w-5 rounded object-contain bg-white dark:bg-gray-900 border"
                   />
                 ) : (

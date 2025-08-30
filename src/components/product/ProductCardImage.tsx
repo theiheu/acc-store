@@ -8,6 +8,7 @@ interface ProductCardImageProps {
   imageEmoji?: string;
   title: string;
   badge?: string;
+  priority?: boolean;
 }
 
 const ProductCardImage = memo(function ProductCardImage({
@@ -15,6 +16,7 @@ const ProductCardImage = memo(function ProductCardImage({
   imageEmoji,
   title,
   badge,
+  priority = false,
 }: ProductCardImageProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -43,12 +45,12 @@ const ProductCardImage = memo(function ProductCardImage({
           sizes="(min-width: 1536px) 20vw, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           className="object-cover object-center transition-transform duration-500 ease-out transform-gpu"
           onError={handleImageError}
-          priority={false}
-          loading="lazy"
+          priority={priority}
+          loading={priority ? "eager" : "lazy"}
         />
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-amber-100 via-amber-200 to-amber-300 dark:from-amber-900/30 dark:via-amber-800/20 dark:to-amber-700/10 flex items-center justify-center">
-          <span 
+          <span
             className="text-6xl opacity-80 transform transition-transform duration-300 ease-out"
             role="img"
             aria-label={title}
@@ -62,7 +64,9 @@ const ProductCardImage = memo(function ProductCardImage({
       {badge && (
         <div className="absolute top-3 right-3 z-10">
           <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-lg backdrop-blur-sm border ${getBadgeStyles(badge)}`}
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold shadow-lg backdrop-blur-sm border ${getBadgeStyles(
+              badge
+            )}`}
           >
             {getBadgeText(badge)}
           </span>

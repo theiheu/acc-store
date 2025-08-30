@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import AdminLayout from "@/src/components/layout/AdminLayout";
 import {
   withAdminAuth,
@@ -352,9 +353,11 @@ function AdminCategoriesPage() {
                 <span className="cursor-grab select-none">≡</span>
                 {typeof c.icon === "string" &&
                 (c.icon.startsWith("/") || c.icon.startsWith("http")) ? (
-                  <img
+                  <Image
                     src={c.icon}
                     alt={c.name}
+                    width={24}
+                    height={24}
                     className="h-6 w-6 rounded object-contain bg-white dark:bg-gray-900 border"
                   />
                 ) : (
@@ -415,9 +418,11 @@ function AdminCategoriesPage() {
                           {typeof c.icon === "string" &&
                           (c.icon.startsWith("/") ||
                             c.icon.startsWith("http")) ? (
-                            <img
+                            <Image
                               src={c.icon}
                               alt={c.name}
+                              width={24}
+                              height={24}
                               className="h-6 w-6 rounded object-contain bg-white dark:bg-gray-900 border"
                             />
                           ) : (
@@ -544,9 +549,11 @@ function AdminCategoriesPage() {
               >
                 {form.icon &&
                 (form.icon.startsWith("/") || form.icon.startsWith("http")) ? (
-                  <img
+                  <Image
                     src={form.icon}
                     alt="Preview"
+                    width={40}
+                    height={40}
                     className="h-10 w-10 rounded object-contain bg-white dark:bg-gray-900 border"
                   />
                 ) : (

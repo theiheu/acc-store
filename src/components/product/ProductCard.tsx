@@ -10,9 +10,13 @@ import ProductCardContent from "./ProductCardContent";
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
-const ProductCard = memo(function ProductCard({ product }: ProductCardProps) {
+const ProductCard = memo(function ProductCard({
+  product,
+  priority = false,
+}: ProductCardProps) {
   const { showLoading } = useGlobalLoading();
 
   // Generate SEO-friendly product path
