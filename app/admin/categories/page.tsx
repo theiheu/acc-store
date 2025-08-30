@@ -80,6 +80,9 @@ function AdminCategoriesPage() {
     isActive: true,
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Update loading state based on hook
   useEffect(() => {
@@ -91,7 +94,7 @@ function AdminCategoriesPage() {
     setForm({
       name: "",
       description: "",
-      icon: "🏷️",
+      icon: "",
       featuredProductIds: [],
       isActive: true,
     });
@@ -103,11 +106,72 @@ function AdminCategoriesPage() {
     setForm({
       name: cat.name,
       description: cat.description || "",
-      icon: cat.icon || "🏷️",
+      icon: cat.icon || "",
       featuredProductIds: cat.featuredProductIds || [],
       isActive: cat.isActive,
     });
     setModalOpen(true);
+  }
+
+  async function handleIconFileSelected(file: File) {
+    setUploadError(null);
+    const allowed = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/svg+xml",
+      "image/webp",
+    ];
+    if (!allowed.includes(file.type)) {
+      setUploadError("Định dạng không được hỗ trợ (PNG, JPG, SVG, WebP)");
+      return;
+    }
+    if (file.size > 1_000_000) {
+      setUploadError("Kích thước tệp vượt quá 1MB");
+      return;
+    }
+    try {
+      setUploadingIcon(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/categories/upload-icon", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error || "Tải lên thất bại");
+      }
+      setForm((f) => ({ ...f, icon: json.url as string }));
+      show("Đã tải lên icon danh mục");
+    } catch (e: any) {
+      setUploadError(e?.message || "Tải lên thất bại");
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
+
+  function onIconInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      void handleIconFileSelected(file);
+      // reset value to allow re-select same file
+      e.currentTarget.value = "";
+    }
+  }
+
+  function onIconDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) void handleIconFileSelected(file);
+  }
+
+  function onIconDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+  }
+
+  function removeIcon() {
+    setForm((f) => ({ ...f, icon: "" }));
   }
 
   async function submitForm(e: React.FormEvent) {
@@ -132,7 +196,7 @@ function AdminCategoriesPage() {
       setForm({
         name: "",
         description: "",
-        icon: "🏷️",
+        icon: "",
         featuredProductIds: [],
         isActive: true,
       });
@@ -286,7 +350,16 @@ function AdminCategoriesPage() {
                 }`}
               >
                 <span className="cursor-grab select-none">≡</span>
-                <span className="text-xl leading-none">{c.icon || "🏷️"}</span>
+                {typeof c.icon === "string" &&
+                (c.icon.startsWith("/") || c.icon.startsWith("http")) ? (
+                  <img
+                    src={c.icon}
+                    alt={c.name}
+                    className="h-6 w-6 rounded object-contain bg-white dark:bg-gray-900 border"
+                  />
+                ) : (
+                  <span className="text-xl leading-none">{c.icon || "🏷️"}</span>
+                )}
                 <div className="flex-1">
                   <div className="font-medium">{c.name}</div>
                   <div className="text-xs text-gray-500">{c.slug}</div>
@@ -337,7 +410,24 @@ function AdminCategoriesPage() {
                       key={c.id}
                       className="border-b hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
-                      <td className="p-3 font-medium">{c.name}</td>
+                      <td className="p-3 font-medium">
+                        <div className="flex items-center gap-2">
+                          {typeof c.icon === "string" &&
+                          (c.icon.startsWith("/") ||
+                            c.icon.startsWith("http")) ? (
+                            <img
+                              src={c.icon}
+                              alt={c.name}
+                              className="h-6 w-6 rounded object-contain bg-white dark:bg-gray-900 border"
+                            />
+                          ) : (
+                            <span className="text-lg leading-none">
+                              {c.icon || "🏷️"}
+                            </span>
+                          )}
+                          <span>{c.name}</span>
+                        </div>
+                      </td>
                       <td className="p-3">{c.slug}</td>
                       <td className="p-3 text-gray-600 dark:text-gray-400">
                         {c.description}
@@ -444,15 +534,68 @@ function AdminCategoriesPage() {
               />
             </div>
             <div>
-              <label className="block text-sm mb-1">Icon (Emoji)</label>
+              <label className="block text-sm mb-1">Icon danh mục</label>
+              <div
+                onDrop={onIconDrop}
+                onDragOver={onIconDragOver}
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed rounded-md p-3 cursor-pointer bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/70 text-sm flex items-center gap-3"
+                title="Kéo & thả hoặc nhấn để chọn ảnh"
+              >
+                {form.icon &&
+                (form.icon.startsWith("/") || form.icon.startsWith("http")) ? (
+                  <img
+                    src={form.icon}
+                    alt="Preview"
+                    className="h-10 w-10 rounded object-contain bg-white dark:bg-gray-900 border"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded flex items-center justify-center bg-white dark:bg-gray-900 border">
+                    <span className="text-xl">🏷️</span>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="text-gray-700 dark:text-gray-300">
+                    Kéo & thả ảnh vào đây hoặc nhấn để chọn
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Hỗ trợ PNG, JPG, SVG, WebP. Tối đa 1MB.
+                  </div>
+                </div>
+                {uploadingIcon && (
+                  <div className="text-amber-600 animate-pulse">
+                    Đang tải...
+                  </div>
+                )}
+              </div>
               <input
-                value={form.icon ?? ""}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, icon: e.target.value }))
-                }
-                className="w-full px-3 py-2 border rounded"
-                placeholder="🏷️"
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                className="hidden"
+                onChange={onIconInputChange}
               />
+              {uploadError && (
+                <div className="text-red-600 text-sm mt-1">{uploadError}</div>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 border rounded cursor-pointer"
+                >
+                  Chọn hình ảnh
+                </button>
+                {form.icon && (
+                  <button
+                    type="button"
+                    onClick={removeIcon}
+                    className="px-3 py-1.5 border rounded text-red-600 cursor-pointer"
+                  >
+                    Xóa icon
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1">

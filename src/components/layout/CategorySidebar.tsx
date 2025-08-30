@@ -86,7 +86,16 @@ export default function CategorySidebar({
                     : "text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
-                <span className="text-base leading-none">{c.icon}</span>
+                {typeof c.icon === "string" &&
+                (c.icon.startsWith("/") || c.icon.startsWith("http")) ? (
+                  <img
+                    src={c.icon}
+                    alt={c.label}
+                    className="h-5 w-5 rounded object-contain bg-white dark:bg-gray-900 border"
+                  />
+                ) : (
+                  <span className="text-base leading-none">{c.icon}</span>
+                )}
                 <span className="truncate">{c.label}</span>
                 {counts && (
                   <span className="ml-1 inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-xs px-2 py-0.5">
@@ -125,7 +134,16 @@ export default function CategorySidebar({
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 }`}
               >
-                <span className="text-base leading-none">{c.icon}</span>
+                {typeof c.icon === "string" &&
+                (c.icon.startsWith("/") || c.icon.startsWith("http")) ? (
+                  <img
+                    src={c.icon}
+                    alt={c.label}
+                    className="h-5 w-5 rounded object-contain bg-white dark:bg-gray-900 border"
+                  />
+                ) : (
+                  <span className="text-base leading-none">{c.icon}</span>
+                )}
                 <span className="flex-1 truncate">{c.label}</span>
                 {counts && (
                   <span className="ml-auto inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-xs px-2 py-0.5">
